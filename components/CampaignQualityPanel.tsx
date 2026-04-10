@@ -67,7 +67,7 @@ function arrScore(v: unknown, weights = { one: 4, two: 3, three: 3 }): number {
 }
 
 function avg(...scores: number[]): number {
-  return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+  return Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
 }
 
 // ── Quality computation ───────────────────────────────────────────────────────
@@ -155,9 +155,9 @@ function computeQuality(intakeData?: IntakeData, dna?: CampaignDNA): QualityResu
   const criticalAvg = Math.round((negocio + audiencia + estrategia) / 3)
 
   const level: 1 | 2 | 3 | 4 =
-    overallScore >= 70 && criticalAvg >= 60 ? 4 :
-    overallScore >= 50 && criticalAvg >= 40 ? 3 :
-    overallScore >= 25 ? 2 : 1
+    overallScore >= 7 && criticalAvg >= 6 ? 4 :
+    overallScore >= 5 && criticalAvg >= 4 ? 3 :
+    overallScore >= 2.5 ? 2 : 1
 
   const levelName =
     level === 4 ? 'Lista para ejecutar' :
@@ -173,37 +173,37 @@ function computeQuality(intakeData?: IntakeData, dna?: CampaignDNA): QualityResu
 
   // Blockers
   const blockers: string[] = []
-  if (negocio < 30) blockers.push('La descripción del negocio es muy vaga para trabajar')
-  if (audiencia < 30) blockers.push('No está definida la audiencia ni su dolor principal')
-  if (estrategia < 30 && (dna?.strategy)) blockers.push('La estrategia está incompleta — falta posicionamiento claro')
+  if (negocio < 3) blockers.push('La descripción del negocio es muy vaga para trabajar')
+  if (audiencia < 3) blockers.push('No está definida la audiencia ni su dolor principal')
+  if (estrategia < 3 && (dna?.strategy)) blockers.push('La estrategia está incompleta — falta posicionamiento claro')
 
   // Warnings
   const warnings: { text: string; prompt: string }[] = []
-  if (investigacion < 50 && investigacion > 0) {
+  if (investigacion < 5 && investigacion > 0) {
     warnings.push({
       text: 'Falta profundidad en la investigación de mercado y competencia',
       prompt: 'Profundizá el análisis competitivo: ¿quiénes son los 3 principales competidores y cuál es nuestra ventaja real sobre ellos?',
     })
   }
-  if (propuestaValor < 50) {
+  if (propuestaValor < 5) {
     warnings.push({
       text: 'La propuesta de valor no está suficientemente diferenciada',
       prompt: 'Trabajemos en la propuesta de valor única: ¿qué hace que este negocio sea iremplazable para su audiencia? Dame opciones concretas.',
     })
   }
-  if (copy < 50 && copy > 0) {
+  if (copy < 5 && copy > 0) {
     warnings.push({
       text: 'El copy necesita más desarrollo para conectar con la audiencia',
       prompt: 'El copy necesita más fuerza. Generá 3 variantes del tagline y 5 headlines que conecten emocionalmente con los dolores de la audiencia.',
     })
   }
-  if (canales < 40) {
+  if (canales < 4) {
     warnings.push({
       text: 'Los canales de distribución no están claros',
       prompt: 'Definamos los canales: ¿dónde está nuestra audiencia exactamente y qué canales priorizan para llegar a ella con el menor costo?',
     })
   }
-  if (metricas < 30) {
+  if (metricas < 3) {
     warnings.push({
       text: 'Faltan métricas concretas para medir el éxito',
       prompt: 'Definamos métricas de éxito concretas: ¿cuántos leads por mes es el objetivo? ¿Cuál sería un CPL (costo por lead) aceptable para este negocio?',
@@ -259,15 +259,15 @@ function computeQuality(intakeData?: IntakeData, dna?: CampaignDNA): QualityResu
 // ── Dimension bar ─────────────────────────────────────────────────────────────
 
 function DimBar({ label, score }: { label: string; score: number }) {
-  const pct = score
+  const pct = score * 10
   const color =
-    score >= 70 ? 'from-green-400 to-emerald-500' :
-    score >= 40 ? 'from-yellow-400 to-orange-400' :
+    score >= 7 ? 'from-green-400 to-emerald-500' :
+    score >= 4 ? 'from-yellow-400 to-orange-400' :
     score > 0 ? 'from-red-400 to-pink-500' :
     'from-gray-200 to-gray-300'
   const textColor =
-    score >= 70 ? 'text-green-600' :
-    score >= 40 ? 'text-yellow-600' :
+    score >= 7 ? 'text-green-600' :
+    score >= 4 ? 'text-yellow-600' :
     score > 0 ? 'text-red-500' :
     'text-gray-400'
 
@@ -275,7 +275,7 @@ function DimBar({ label, score }: { label: string; score: number }) {
     <div>
       <div className="flex justify-between items-center mb-1">
         <span className="text-[11px] text-gray-600 font-medium">{label}</span>
-        <span className={`text-[11px] font-bold tabular-nums ${textColor}`}>{score}</span>
+        <span className={`text-[11px] font-bold tabular-nums ${textColor}`}>{score.toFixed(1)}</span>
       </div>
       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div
@@ -320,10 +320,10 @@ export default function CampaignQualityPanel({
           <div className="flex-1 h-2 bg-white/50 rounded-full overflow-hidden">
             <div
               className="h-full bg-current rounded-full transition-all duration-700 opacity-60"
-              style={{ width: `${q.overallScore}%` }}
+              style={{ width: `${q.overallScore * 10}%` }}
             />
           </div>
-          <span className="text-xs font-bold tabular-nums opacity-80">{q.overallScore}/100</span>
+          <span className="text-xs font-bold tabular-nums opacity-80">{q.overallScore.toFixed(1)}/10</span>
         </div>
       </div>
 
