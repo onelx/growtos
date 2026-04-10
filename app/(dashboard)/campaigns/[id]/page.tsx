@@ -111,10 +111,13 @@ export default function CampaignDetailPage() {
     { id: 'dna',       label: 'ADN',           icon: '🧬' },
   ]
 
+  const biases = dna.biases as Record<string, unknown> | undefined
+
   const agentStages = [
-    { id: 'strategist', name: 'Agente Estratega',    icon: '🎯', color: 'from-purple-500 to-indigo-600', done: !!strategy },
-    { id: 'researcher', name: 'Agente Investigador', icon: '🔍', color: 'from-blue-500 to-cyan-600',    done: !!research },
-    { id: 'copywriter', name: 'Agente Copywriter',   icon: '✍️', color: 'from-pink-500 to-rose-600',   done: !!copy },
+    { id: 'strategist', name: 'Agente Estratega',          icon: '🎯', color: 'from-purple-500 to-indigo-600', done: !!strategy },
+    { id: 'researcher', name: 'Agente Investigador',        icon: '🔍', color: 'from-blue-500 to-cyan-600',    done: !!research },
+    { id: 'copywriter', name: 'Agente Copywriter',          icon: '✍️', color: 'from-pink-500 to-rose-600',   done: !!copy },
+    { id: 'biases',     name: 'Sesgos Cognitivos',          icon: '🧠', color: 'from-indigo-500 to-purple-600', done: !!biases },
   ]
 
   return (
