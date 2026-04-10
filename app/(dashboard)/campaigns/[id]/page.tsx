@@ -158,7 +158,7 @@ export default function CampaignDetailPage() {
                     Idea de negocio
                   </h3>
                   <p className="text-gray-900">
-                    {campaign.intake_data?.businessIdea || 'No especificada'}
+                    {campaign.intake_data?.businessDescription || 'No especificada'}
                   </p>
                 </div>
                 <div>
@@ -174,7 +174,7 @@ export default function CampaignDetailPage() {
                     Objetivos
                   </h3>
                   <p className="text-gray-900">
-                    {campaign.intake_data?.goals || 'No especificados'}
+                    {campaign.intake_data?.goals?.join(', ') || 'No especificados'}
                   </p>
                 </div>
               </div>
