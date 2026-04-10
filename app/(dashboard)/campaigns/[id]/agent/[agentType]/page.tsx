@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAgent } from '@/hooks/useAgent'
 import { useCredits } from '@/hooks/useCredits'
+import { AgentType } from '@/types'
 
 interface Message {
   id: string
@@ -21,12 +22,13 @@ export default function AgentChatPage() {
   const agentType = params.agentType as string
 
   const { balance: credits, isLoading: creditsLoading, deductCredits } = useCredits()
-  const { sendMessage, streaming } = useAgent(campaignId)
+  const { sendMessage, isStreaming: streaming, messages: agentMessages } = useAgent()
 
-  const [messages, setMessages] = useState<Message[]>([])
+  const [localMessages, setLocalMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const messages = localMessages
 
   const agentConfig: Record<string, { name: string; icon: string; intro: string }> = {
     strategist: {
@@ -53,8 +55,7 @@ export default function AgentChatPage() {
   }
 
   useEffect(() => {
-    // Mensaje inicial del agente
-    setMessages([
+    setLocalMessages([
       {
         id: '1',
         role: 'assistant',
@@ -73,9 +74,8 @@ export default function AgentChatPage() {
   }
 
   const handleSend = async () => {
-    if (!input.trim() || isTyping || streaming) return
+    if (!input.trim() || streaming) return
 
-    // Verificar créditos
     if (credits < 10) {
       alert('No tenés suficientes créditos. Necesitás al menos 10 créditos.')
       return
@@ -88,26 +88,26 @@ export default function AgentChatPage() {
       timestamp: new Date(),
     }
 
-    setMessages((prev) => [...prev, userMessage])
+    setLocalMessages((prev) => [...prev, userMessage])
+    const currentInput = input.trim()
     setInput('')
-    setIsTyping(true)
 
     try {
-      const response = await sendMessage(agentType, input.trim())
+      await sendMessage(currentInput, agentType as AgentType, campaignId)
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.content,
-        timestamp: new Date(),
+      // Sync the last assistant message from the hook
+      const lastAgentMsg = agentMessages[agentMessages.length - 1]
+      if (lastAgentMsg?.role === 'assistant') {
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: lastAgentMsg.content,
+          timestamp: new Date(),
+        }
+        setLocalMessages((prev) => [...prev, assistantMessage])
       }
 
-      setMessages((prev) => [...prev, assistantMessage])
-
-      // Deducir créditos
-      if (response.tokensUsed) {
-        await deductCredits(Math.ceil(response.tokensUsed / 100), 'agent_message')
-      }
+      await deductCredits(10, 'agent_message')
     } catch (error) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -115,9 +115,7 @@ export default function AgentChatPage() {
         content: 'Lo siento, hubo un error al procesar tu mensaje. Por favor, intentá de nuevo.',
         timestamp: new Date(),
       }
-      setMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setIsTyping(false)
+      setLocalMessages((prev) => [...prev, errorMessage])
     }
   }
 
@@ -180,7 +178,7 @@ export default function AgentChatPage() {
             </div>
           ))}
 
-          {(isTyping || streaming) && (
+          {(streaming) && (
             <div className="flex justify-start">
               <div className="bg-gray-100 rounded-lg p-4">
                 <div className="flex gap-1">
@@ -205,12 +203,12 @@ export default function AgentChatPage() {
               placeholder="Escribí tu mensaje..."
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent resize-none"
               rows={2}
-              disabled={isTyping || streaming}
+              disabled={streaming}
             />
             <Button
               onClick={handleSend}
               variant="primary"
-              disabled={!input.trim() || isTyping || streaming || credits < 10}
+              disabled={!input.trim() || streaming || credits < 10}
               className="self-end"
             >
               Enviar
