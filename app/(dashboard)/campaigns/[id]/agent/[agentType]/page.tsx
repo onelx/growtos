@@ -76,6 +76,18 @@ const AGENT_CONFIG: Record<
   },
 }
 
+// ── Module-level helpers (stable, no closure issues) ──────────────────────────
+
+function parseBlock(content: string, regex: RegExp): Record<string, unknown> | null {
+  const match = content.match(regex)
+  if (!match) return null
+  try { return JSON.parse(match[1]) } catch { return null }
+}
+
+function stripBlock(content: string, regex: RegExp): string {
+  return content.replace(regex, '').trim()
+}
+
 // ── Output cards ───────────────────────────────────────────────────────────────
 
 function TagList({ items }: { items: unknown }) {
@@ -203,40 +215,25 @@ export default function AgentPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [outputData, setOutputData] = useState<Record<string, unknown> | null>(null)
   const [liveOutput, setLiveOutput] = useState<Record<string, unknown> | null>(null)
   const [intakeData, setIntakeData] = useState<Record<string, unknown> | undefined>()
   const [campaignDna, setCampaignDna] = useState<CampaignDNA | undefined>()
+  // Memory persistence
+  const [conversationLoaded, setConversationLoaded] = useState(false)
+  const [hasSavedHistory, setHasSavedHistory] = useState(false)
 
   const conversationHistoryRef = useRef<ConversationMessage[]>([])
   const accumulatedTextRef = useRef<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const hasStartedRef = useRef(false)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // ── Parse output block ────────────────────────────────────────────────────
-  const parseOutput = useCallback((content: string): Record<string, unknown> | null => {
-    if (!config) return null
-    const match = content.match(config.outputRegex)
-    if (!match) return null
-    try {
-      return JSON.parse(match[1])
-    } catch {
-      return null
-    }
-  }, [config])
-
-  const stripOutputBlock = useCallback((content: string): string => {
-    if (!config) return content
-    return content.replace(config.outputRegex, '').trim()
-  }, [config])
-
   // ── Stream agent response ─────────────────────────────────────────────────
   const streamAgentResponse = useCallback(async (msgs: ConversationMessage[]) => {
+    if (!config) return
     setIsStreaming(true)
     setError(null)
 
@@ -273,12 +270,11 @@ export default function AgentPage() {
             if (parsed.error) throw new Error(parsed.error)
             if (parsed.text) {
               accumulatedTextRef.current += parsed.text
-              const visible = stripOutputBlock(accumulatedTextRef.current)
+              const visible = stripBlock(accumulatedTextRef.current, config.outputRegex)
               setMessages((prev) =>
                 prev.map((m) => m.id === msgId ? { ...m, displayContent: visible } : m)
               )
-              // Update live output for memory panel
-              const partial = parseOutput(accumulatedTextRef.current)
+              const partial = parseBlock(accumulatedTextRef.current, config.outputRegex)
               if (partial) setLiveOutput(partial)
             }
           } catch (e) {
@@ -289,10 +285,10 @@ export default function AgentPage() {
 
       // Finalize
       const fullText = accumulatedTextRef.current
-      const parsed = parseOutput(fullText)
-      const visible = stripOutputBlock(fullText)
-
-      conversationHistoryRef.current = [...msgs, { role: 'assistant', content: fullText }]
+      const parsed = parseBlock(fullText, config.outputRegex)
+      const visible = stripBlock(fullText, config.outputRegex)
+      const newHistory: ConversationMessage[] = [...msgs, { role: 'assistant', content: fullText }]
+      conversationHistoryRef.current = newHistory
 
       setMessages((prev) =>
         prev.map((m) =>
@@ -302,64 +298,98 @@ export default function AgentPage() {
         )
       )
 
-      if (parsed) {
-        setOutputData(parsed)
-        await saveOutput(parsed)
-      }
+      if (parsed) await saveOutput(parsed)
+
+      // Save conversation history to Supabase
+      await saveConversation(newHistory)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
       setMessages((prev) => prev.filter((m) => m.id !== msgId))
     } finally {
       setIsStreaming(false)
     }
-  }, [agentType, campaignId, parseOutput, stripOutputBlock])
+  }, [agentType, campaignId, config])
 
-  // ── Save output to campaign ───────────────────────────────────────────────
+  // ── Save structured output ────────────────────────────────────────────────
   const saveOutput = useCallback(async (data: Record<string, unknown>) => {
     if (!config) return
     setIsSaving(true)
     try {
-      // First get current campaign_dna
-      const getRes = await fetch(`/api/campaigns/${campaignId}`)
-      const { campaign } = await getRes.json()
-      const currentDna = campaign?.campaign_dna || {}
-
-      await fetch(`/api/campaigns/${campaignId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          campaign_dna: { ...currentDna, [config.outputKey]: data },
-          status: config.doneStatus,
-        }),
+      setCampaignDna((prev) => {
+        const updated = { ...prev, [config.outputKey]: data }
+        // Fire-and-forget PATCH with the merged DNA
+        fetch(`/api/campaigns/${campaignId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            campaign_dna: updated,
+            status: config.doneStatus,
+          }),
+        }).catch(() => {})
+        return updated
       })
       setIsSaved(true)
-      setCampaignDna((prev) => ({ ...prev, [config.outputKey]: data }))
-    } catch {
-      // Non-critical — output is still shown
     } finally {
       setIsSaving(false)
     }
   }, [campaignId, config])
 
-  // ── Fetch campaign data for memory panel ──────────────────────────────────
+  // ── Save conversation history ─────────────────────────────────────────────
+  const saveConversation = useCallback(async (history: ConversationMessage[]) => {
+    setCampaignDna((prev) => {
+      const conversations = { ...(prev as any)?.conversations, [agentType]: history }
+      const updated = { ...prev, conversations }
+      fetch(`/api/campaigns/${campaignId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaign_dna: updated }),
+      }).catch(() => {})
+      return updated as CampaignDNA
+    })
+  }, [agentType, campaignId])
+
+  // ── Fetch campaign + restore conversation ────────────────────────────────
   useEffect(() => {
+    if (!config) return
     fetch(`/api/campaigns/${campaignId}`)
       .then((r) => r.json())
       .then(({ campaign }) => {
-        if (campaign) {
-          setIntakeData(campaign.intake_data)
-          setCampaignDna(campaign.campaign_dna)
-        }
-      })
-      .catch(() => {})
-  }, [campaignId])
+        if (!campaign) return
+        setIntakeData(campaign.intake_data)
+        setCampaignDna(campaign.campaign_dna)
 
-  // ── Auto-start on mount ───────────────────────────────────────────────────
+        const savedHistory: ConversationMessage[] | undefined =
+          campaign.campaign_dna?.conversations?.[agentType]
+
+        if (savedHistory && savedHistory.length > 0) {
+          conversationHistoryRef.current = savedHistory
+          // Reconstruct display messages from saved history
+          const restored: DisplayMessage[] = savedHistory.map((msg) => {
+            if (msg.role === 'user') {
+              return { id: crypto.randomUUID(), role: 'user' as const, displayContent: msg.content, isStreaming: false }
+            }
+            const outputData = parseBlock(msg.content, config.outputRegex)
+            return {
+              id: crypto.randomUUID(),
+              role: 'assistant' as const,
+              displayContent: stripBlock(msg.content, config.outputRegex),
+              outputData: outputData ?? undefined,
+              isStreaming: false,
+            }
+          })
+          setMessages(restored)
+          setHasSavedHistory(true)
+        }
+        setConversationLoaded(true)
+      })
+      .catch(() => setConversationLoaded(true))
+  }, [campaignId, agentType, config])
+
+  // ── Auto-start (only when no saved history) ───────────────────────────────
   useEffect(() => {
-    if (!config || hasStartedRef.current) return
-    hasStartedRef.current = true
+    if (!conversationLoaded || hasSavedHistory) return
     streamAgentResponse([])
-  }, [config, streamAgentResponse])
+  }, [conversationLoaded, hasSavedHistory, streamAgentResponse])
 
   // ── Send follow-up ────────────────────────────────────────────────────────
   const handleSend = useCallback(async () => {
