@@ -25,6 +25,7 @@ interface DisplayMessage {
   role: 'user' | 'assistant'
   displayContent: string
   brief?: CampaignBrief
+  suggestions?: string[]
   isStreaming: boolean
   timestamp: Date
 }
@@ -32,6 +33,20 @@ interface DisplayMessage {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const BRIEF_REGEX = /```campaign-brief\s*([\s\S]*?)\s*```/
+const SUGGESTIONS_REGEX = /```suggestions\s*([\s\S]*?)\s*```/
+
+function parseSuggestions(content: string): string[] | null {
+  const match = content.match(SUGGESTIONS_REGEX)
+  if (!match) return null
+  try {
+    const parsed = JSON.parse(match[1])
+    return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === 'string') : null
+  } catch { return null }
+}
+
+function stripSuggestions(content: string): string {
+  return content.replace(SUGGESTIONS_REGEX, '').replace(/```suggestions[\s\S]*$/, '').trim()
+}
 
 function parseCampaignBrief(content: string): CampaignBrief | null {
   const match = content.match(BRIEF_REGEX)
@@ -270,7 +285,7 @@ export default function NewCampaignPage() {
             }
             if (parsed.text) {
               accumulatedTextRef.current += parsed.text
-              const visibleText = stripBriefBlock(accumulatedTextRef.current)
+              const visibleText = stripSuggestions(stripBriefBlock(accumulatedTextRef.current))
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId ? { ...m, displayContent: visibleText } : m
@@ -289,7 +304,8 @@ export default function NewCampaignPage() {
       // Finalize message
       const fullText = accumulatedTextRef.current
       const brief = parseCampaignBrief(fullText)
-      const visibleText = stripBriefBlock(fullText)
+      const suggestions = parseSuggestions(fullText)
+      const visibleText = stripSuggestions(stripBriefBlock(fullText))
 
       conversationHistoryRef.current = [
         ...conversationHistoryRef.current,
@@ -303,6 +319,7 @@ export default function NewCampaignPage() {
                 ...m,
                 displayContent: visibleText,
                 brief: brief ?? undefined,
+                suggestions: suggestions ?? undefined,
                 isStreaming: false,
               }
             : m
@@ -386,6 +403,20 @@ export default function NewCampaignPage() {
     },
     []
   )
+
+  // ── Send from chip click ──────────────────────────────────────────────────
+  const handleDirectSend = useCallback(async (text: string) => {
+    if (!text || isStreaming) return
+    conversationHistoryRef.current = [
+      ...conversationHistoryRef.current,
+      { role: 'user', content: text },
+    ]
+    setMessages((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), role: 'user', displayContent: text, isStreaming: false, timestamp: new Date() },
+    ])
+    await streamAssistantResponse()
+  }, [isStreaming, streamAssistantResponse])
 
   // ── Create campaign ───────────────────────────────────────────────────────
   const handleCreateCampaign = useCallback(
@@ -538,6 +569,22 @@ export default function NewCampaignPage() {
                       </span>
                     )}
                   </div>
+
+                  {/* Quick reply chips */}
+                  {!msg.isStreaming && isLast && msg.suggestions && msg.suggestions.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3 ml-1">
+                      {msg.suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handleDirectSend(s)}
+                          disabled={isStreaming}
+                          className="text-xs px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-full hover:border-purple-400 hover:text-purple-700 hover:bg-purple-50 transition-all disabled:opacity-40 font-medium shadow-sm"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Brief card below the last assistant message */}
                   {msg.brief && (
