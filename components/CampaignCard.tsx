@@ -35,14 +35,13 @@ const CampaignCard: React.FC<CampaignCardProps> = ({
       strategist: { label: 'Estrategia', color: 'text-blue-700', bgColor: 'bg-blue-100' },
       researcher: { label: 'Investigación', color: 'text-purple-700', bgColor: 'bg-purple-100' },
       copywriter: { label: 'Copywriting', color: 'text-indigo-700', bgColor: 'bg-indigo-100' },
-      designer: { label: 'Diseño', color: 'text-pink-700', bgColor: 'bg-pink-100' },
       completed: { label: 'Completada', color: 'text-green-700', bgColor: 'bg-green-100' },
     };
     return configs[status] || configs.intake;
   };
 
   const calculateProgress = () => {
-    const stages = ['intake', 'strategist', 'researcher', 'copywriter', 'designer', 'completed'];
+    const stages = ['intake', 'strategist', 'researcher', 'copywriter', 'completed'];
     const currentIndex = stages.indexOf(campaign.status);
     return ((currentIndex + 1) / stages.length) * 100;
   };

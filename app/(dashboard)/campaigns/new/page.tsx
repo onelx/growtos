@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 
-interface IntakeData {
+interface FormData {
   businessIdea: string
   targetAudience: string
   uniqueValue: string
@@ -19,7 +19,7 @@ export default function NewCampaignPage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<IntakeData>({
+  const [data, setData] = useState<FormData>({
     businessIdea: '',
     targetAudience: '',
     uniqueValue: '',
@@ -52,7 +52,14 @@ export default function NewCampaignPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: data.businessIdea.slice(0, 50) || 'Nueva campaña',
-          intake_data: data,
+          intake_data: {
+            businessName: data.businessIdea.slice(0, 50) || 'Nueva campaña',
+            businessDescription: data.businessIdea,
+            targetAudience: data.targetAudience,
+            goals: data.goals.split(',').map((g) => g.trim()).filter(Boolean),
+            constraints: data.constraints,
+            timeline: data.timeline,
+          },
         }),
       })
 

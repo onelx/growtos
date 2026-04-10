@@ -10,21 +10,7 @@ interface CampaignState {
   clearCampaign: () => void
 }
 
-const initialDNA: CampaignDNA = {
-  business_idea: '',
-  target_audience: '',
-  unique_value_proposition: '',
-  positioning_statement: '',
-  brand_voice: '',
-  key_messages: [],
-  content_pillars: [],
-  distribution_channels: [],
-  success_metrics: [],
-  budget_allocation: {},
-  timeline: {},
-  competitive_advantages: [],
-  market_insights: []
-}
+const initialDNA: CampaignDNA = {}
 
 export const useCampaignStore = create<CampaignState>()(
   persist(
