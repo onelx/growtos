@@ -34,6 +34,8 @@ interface CardConfig {
   type: 'text' | 'tags'
   refinePlaceholder: string
   description: string
+  helpText: string   // didactic explanation
+  helpExample: string // concrete example
 }
 
 const CARDS: CardConfig[] = [
@@ -44,6 +46,8 @@ const CARDS: CardConfig[] = [
     type: 'text',
     description: 'Tamaño del mercado objetivo y oportunidad real',
     refinePlaceholder: 'Ej: Operamos en Argentina, principalmente CABA y GBA. Nuestro ticket promedio es $50 USD...',
+    helpText: 'Cuántas personas o empresas son potenciales clientes tuyos y qué valor económico representa ese mercado. Sirve para saber si vale la pena invertir en una campaña y qué tan grande puede ser el retorno.',
+    helpExample: 'En Argentina hay 2.3M de PyMEs. Si tu producto apunta al 10% digital = 230K clientes potenciales. Con un ticket de $50 USD/mes = mercado de $138M USD anuales.',
   },
   {
     key: 'competitiveAdvantage',
@@ -52,6 +56,8 @@ const CARDS: CardConfig[] = [
     type: 'text',
     description: 'En qué superamos concretamente a la competencia',
     refinePlaceholder: 'Ej: Somos 30% más baratos que el líder y entregamos en 24hs cuando todos tardan 72hs...',
+    helpText: 'La razón concreta y específica por la que alguien elegiría tu producto sobre la competencia. No "somos mejores" — sino QUÉ hacés diferente y POR QUÉ importa para tu cliente.',
+    helpExample: 'Somos la única plataforma que enseña marketing mientras lo ejecuta en tu negocio real. La competencia vende cursos O servicios — nosotros hacemos los dos al mismo tiempo.',
   },
   {
     key: 'mainCompetitors',
@@ -60,6 +66,8 @@ const CARDS: CardConfig[] = [
     type: 'tags',
     description: 'Los 3-5 competidores más relevantes',
     refinePlaceholder: 'Ej: Los principales son X e Y. X tiene más market share pero peor soporte...',
+    helpText: 'Las opciones reales que evalúa tu cliente antes de comprarte. Incluí competidores directos (hacen lo mismo) e indirectos (resuelven el mismo problema de otra manera, incluso con hojas de cálculo o YouTube).',
+    helpExample: 'HubSpot (directo, muy caro y complejo) · Agencias locales (alternativa humana, sin educación) · Excel + tutoriales de YouTube (sustituto gratuito)',
   },
   {
     key: 'opportunities',
@@ -68,6 +76,8 @@ const CARDS: CardConfig[] = [
     type: 'tags',
     description: 'Oportunidades concretas para aprovechar en la campaña',
     refinePlaceholder: 'Ej: Hay mucho interés en el segmento PyMEs que nadie está atacando...',
+    helpText: 'Espacios en el mercado donde la demanda existe pero la oferta actual no la cubre bien. Son los huecos donde tu campaña puede entrar con menor resistencia y mayor impacto.',
+    helpExample: 'Las PyMEs B2B no tienen herramientas de marketing pensadas para ellas — todas apuntan a B2C. Eso es un hueco enorme sin explotar.',
   },
   {
     key: 'audiencePainPoints',
@@ -76,6 +86,8 @@ const CARDS: CardConfig[] = [
     type: 'tags',
     description: 'Los dolores más profundos, en palabras del cliente',
     refinePlaceholder: 'Ej: Nuestros clientes se quejan de la falta de soporte post-venta y tiempos de respuesta...',
+    helpText: 'Los problemas reales que mantienen despierto a tu cliente. No los que vos creés que tienen — los que ellos mismos expresarían. Estos son la base de todo el copy de la campaña.',
+    helpExample: '"No sé si lo que hago funciona" · "Pagué una agencia y no vi resultados" · "Aprendo marketing pero no sé cómo aplicarlo a mi negocio específico"',
   },
   {
     key: 'marketTrends',
@@ -84,6 +96,8 @@ const CARDS: CardConfig[] = [
     type: 'tags',
     description: 'Tendencias clave que impactan la estrategia',
     refinePlaceholder: 'Ej: Vemos una migración fuerte hacia canales mobile y compra por WhatsApp...',
+    helpText: 'Cambios en el comportamiento del mercado, tecnología o contexto que están modificando cómo la gente compra o qué espera. Afectan el tono, el canal y el timing de tu campaña.',
+    helpExample: 'Crecimiento de ventas por WhatsApp Business entre PyMEs · Caída de confianza en ads pagos, sube el contenido orgánico · IA democratiza herramientas que antes eran solo para grandes empresas',
   },
   {
     key: 'risks',
@@ -92,6 +106,8 @@ const CARDS: CardConfig[] = [
     type: 'tags',
     description: 'Riesgos que hay que contemplar',
     refinePlaceholder: 'Ej: Un competidor acaba de bajar precios 40%. También el tipo de cambio nos afecta...',
+    helpText: 'Factores externos o del mercado que podrían complicar tu campaña o reducir su efectividad. No es para paralizarse — es para anticiparse y tener un plan B antes de invertir.',
+    helpExample: 'Competidor principal bajó precios 40% en Q3 · Inflación reduce presupuesto disponible de PyMEs para herramientas SaaS · Cambios en el algoritmo de Meta afectan el alcance orgánico',
   },
 ]
 
@@ -109,6 +125,20 @@ function parseResearchOutput(text: string): ResearchOutput | null {
   } catch {
     return null
   }
+}
+
+// ── InfoPanel ─────────────────────────────────────────────────────────────────
+
+function InfoPanel({ helpText, helpExample }: { helpText: string; helpExample: string }) {
+  return (
+    <div className="mx-4 mb-0 -mt-1 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs space-y-2">
+      <p className="text-amber-800 leading-relaxed">{helpText}</p>
+      <div className="border-t border-amber-100 pt-2">
+        <p className="text-amber-500 font-bold uppercase tracking-widest text-[10px] mb-1">Ejemplo</p>
+        <p className="text-amber-700 leading-relaxed italic">{helpExample}</p>
+      </div>
+    </div>
+  )
 }
 
 // ── TagEditor ─────────────────────────────────────────────────────────────────
@@ -275,16 +305,35 @@ function ResearchCard({
   onChange: (v: string | string[]) => void
   onRefine: (ctx: string) => Promise<void>
 }) {
+  const [showInfo, setShowInfo] = useState(false)
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
       {/* Card header */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
         <span className="text-base">{config.icon}</span>
-        <div>
+        <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-900 text-sm leading-tight">{config.label}</p>
           <p className="text-xs text-gray-400">{config.description}</p>
         </div>
+        {/* Info toggle */}
+        <button
+          onClick={() => setShowInfo((v) => !v)}
+          title={showInfo ? 'Cerrar ayuda' : 'Ver explicación y ejemplo'}
+          className={`w-6 h-6 flex items-center justify-center rounded-full border text-xs font-bold transition-colors flex-shrink-0 ${
+            showInfo
+              ? 'bg-amber-100 border-amber-300 text-amber-700'
+              : 'border-gray-200 text-gray-400 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50'
+          }`}
+        >
+          ?
+        </button>
       </div>
+
+      {/* Info panel */}
+      {showInfo && (
+        <InfoPanel helpText={config.helpText} helpExample={config.helpExample} />
+      )}
 
       {/* Card body */}
       <div className="px-4 py-3">
