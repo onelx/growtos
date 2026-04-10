@@ -264,6 +264,9 @@ export default function NewCampaignPage() {
 
           try {
             const parsed = JSON.parse(data) as { text?: string; error?: string }
+            if (parsed.error) {
+              throw new Error(parsed.error)
+            }
             if (parsed.text) {
               accumulatedTextRef.current += parsed.text
               const visibleText = stripBriefBlock(accumulatedTextRef.current)
@@ -273,8 +276,11 @@ export default function NewCampaignPage() {
                 )
               )
             }
-          } catch {
-            // skip malformed chunks
+          } catch (parseErr) {
+            if (parseErr instanceof Error && parseErr.message !== 'Unexpected token') {
+              throw parseErr
+            }
+            // skip genuinely malformed chunks
           }
         }
       }

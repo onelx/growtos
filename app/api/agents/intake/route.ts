@@ -42,6 +42,12 @@ Escribí un párrafo de cierre natural celebrando lo que aprendiste, luego inclu
 IMPORTANTE: El bloque JSON debe ser lo último en tu mensaje. No agregues texto después del bloque.`
 
 export async function POST(request: Request) {
+  // Guard: ensure API key is configured
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('ANTHROPIC_API_KEY is not set')
+    return Response.json({ error: 'API key no configurada' }, { status: 500 })
+  }
+
   try {
     const { messages } = await request.json()
 
@@ -49,18 +55,18 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Se requiere historial de mensajes' }, { status: 400 })
     }
 
-    const stream = await anthropic.messages.stream({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages,
-    })
-
     const encoder = new TextEncoder()
 
     const readable = new ReadableStream({
       async start(controller) {
         try {
+          const stream = anthropic.messages.stream({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 1024,
+            system: SYSTEM_PROMPT,
+            messages,
+          })
+
           for await (const chunk of stream) {
             if (
               chunk.type === 'content_block_delta' &&
@@ -72,8 +78,11 @@ export async function POST(request: Request) {
           }
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
         } catch (err) {
-          const data = `data: ${JSON.stringify({ error: 'Error en streaming' })}\n\n`
+          console.error('Streaming error:', err)
+          const message = err instanceof Error ? err.message : 'Error en streaming'
+          const data = `data: ${JSON.stringify({ error: message })}\n\n`
           controller.enqueue(encoder.encode(data))
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'))
         } finally {
           controller.close()
         }
