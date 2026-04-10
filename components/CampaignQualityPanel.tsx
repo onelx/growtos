@@ -78,8 +78,9 @@ interface QualityResult {
   levelColor: string
   overallScore: number
   dims: { id: string; label: string; score: number }[]
-  blockers: string[]
-  warnings: { text: string; prompt: string }[]
+  strengths: string[]
+  gaps: { text: string; prompt: string }[]
+  consequence: string | null
   nextStep: { text: string; prompt: string } | null
 }
 
@@ -151,8 +152,8 @@ function computeQuality(intakeData?: IntakeData, dna?: CampaignDNA): QualityResu
     { id: 'metricas', label: 'Métricas', score: metricas },
   ]
 
-  const overallScore = Math.round(dims.reduce((a, d) => a + d.score, 0) / dims.length)
-  const criticalAvg = Math.round((negocio + audiencia + estrategia) / 3)
+  const overallScore = Math.round((dims.reduce((a, d) => a + d.score, 0) / dims.length) * 10) / 10
+  const criticalAvg = Math.round(((negocio + audiencia + estrategia) / 3) * 10) / 10
 
   const level: 1 | 2 | 3 | 4 =
     overallScore >= 7 && criticalAvg >= 6 ? 4 :
@@ -171,46 +172,96 @@ function computeQuality(intakeData?: IntakeData, dna?: CampaignDNA): QualityResu
     level === 2 ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
     'bg-red-100 text-red-700 border-red-200'
 
-  // Blockers
-  const blockers: string[] = []
-  if (negocio < 3) blockers.push('La descripción del negocio es muy vaga para trabajar')
-  if (audiencia < 3) blockers.push('No está definida la audiencia ni su dolor principal')
-  if (estrategia < 3 && (dna?.strategy)) blockers.push('La estrategia está incompleta — falta posicionamiento claro')
-
-  // Warnings
-  const warnings: { text: string; prompt: string }[] = []
-  if (investigacion < 5 && investigacion > 0) {
-    warnings.push({
-      text: 'Falta profundidad en la investigación de mercado y competencia',
-      prompt: 'Profundizá el análisis competitivo: ¿quiénes son los 3 principales competidores y cuál es nuestra ventaja real sobre ellos?',
-    })
-  }
-  if (propuestaValor < 5) {
-    warnings.push({
-      text: 'La propuesta de valor no está suficientemente diferenciada',
-      prompt: 'Trabajemos en la propuesta de valor única: ¿qué hace que este negocio sea iremplazable para su audiencia? Dame opciones concretas.',
-    })
-  }
-  if (copy < 5 && copy > 0) {
-    warnings.push({
-      text: 'El copy necesita más desarrollo para conectar con la audiencia',
-      prompt: 'El copy necesita más fuerza. Generá 3 variantes del tagline y 5 headlines que conecten emocionalmente con los dolores de la audiencia.',
-    })
-  }
-  if (canales < 4) {
-    warnings.push({
-      text: 'Los canales de distribución no están claros',
-      prompt: 'Definamos los canales: ¿dónde está nuestra audiencia exactamente y qué canales priorizan para llegar a ella con el menor costo?',
-    })
-  }
-  if (metricas < 3) {
-    warnings.push({
-      text: 'Faltan métricas concretas para medir el éxito',
-      prompt: 'Definamos métricas de éxito concretas: ¿cuántos leads por mes es el objetivo? ¿Cuál sería un CPL (costo por lead) aceptable para este negocio?',
-    })
+  // ── Qué está bien hoy ────────────────────────────────────────────────────────
+  const strengths: string[] = []
+  if (negocio >= 6) strengths.push('El negocio y el problema que resuelve están bien definidos')
+  if (audiencia >= 6) strengths.push('La audiencia objetivo y sus dolores están identificados')
+  if (estrategia >= 6) strengths.push('Hay una estrategia y posicionamiento claros')
+  if (investigacion >= 6) strengths.push('La investigación de mercado y competencia está completa')
+  if (propuestaValor >= 6) strengths.push('La propuesta de valor está diferenciada')
+  if (copy >= 6) strengths.push('El copy tiene fuerza para conectar con la audiencia')
+  if (canales >= 6) strengths.push('Los canales de distribución están definidos')
+  if (metricas >= 6) strengths.push('Hay métricas y objetivos concretos para medir el éxito')
+  if (strengths.length === 0) {
+    if (negocio > 0) strengths.push('El negocio está describiendo — hay material para trabajar')
+    else strengths.push('Estás en el inicio — cada respuesta suma definición a la campaña')
   }
 
-  // Next step
+  // ── Qué falta resolver ───────────────────────────────────────────────────────
+  const gaps: { text: string; prompt: string }[] = []
+  if (negocio < 4) {
+    gaps.push({
+      text: 'La descripción del negocio necesita más profundidad',
+      prompt: 'Necesito que me hagas más preguntas sobre el negocio para entender mejor el problema que resuelve y para quién.',
+    })
+  }
+  if (audiencia < 4) {
+    gaps.push({
+      text: 'La audiencia no está suficientemente definida',
+      prompt: 'Profundizá sobre mi audiencia objetivo: quiénes son exactamente, qué los frustra y qué desean lograr.',
+    })
+  }
+  if (estrategia < 4 && negocio >= 4) {
+    gaps.push({
+      text: 'Falta posicionamiento claro y mensajes clave',
+      prompt: 'Trabajemos en el posicionamiento: ¿cómo queremos que nos perciba la audiencia vs la competencia? Dame 3 opciones de posicionamiento.',
+    })
+  }
+  if (investigacion < 5 && negocio >= 4) {
+    gaps.push({
+      text: 'La investigación competitiva está incompleta',
+      prompt: 'Profundizá el análisis competitivo: los 3 principales competidores y cuál es nuestra ventaja real sobre ellos.',
+    })
+  }
+  if (propuestaValor < 5 && estrategia >= 4) {
+    gaps.push({
+      text: 'La propuesta de valor no está diferenciada todavía',
+      prompt: 'Trabajemos en la propuesta de valor única: ¿qué hace que este negocio sea irremplazable para su audiencia? Dame opciones concretas.',
+    })
+  }
+  if (copy < 4 && estrategia >= 5) {
+    gaps.push({
+      text: 'El copy no está desarrollado — falta tagline y mensajes',
+      prompt: 'Generá el copy base: tagline principal, 5 headlines y 3 CTAs que conecten con los dolores de la audiencia.',
+    })
+  }
+  if (canales < 4 && estrategia >= 4) {
+    gaps.push({
+      text: 'No están definidos los canales de distribución',
+      prompt: 'Definamos los canales: ¿dónde está la audiencia y qué canales priorizar para llegar con el menor costo posible?',
+    })
+  }
+  if (metricas < 3 && negocio >= 4) {
+    gaps.push({
+      text: 'Faltan métricas concretas de éxito',
+      prompt: 'Definamos métricas concretas: ¿cuántos leads por mes es el objetivo? ¿Cuál sería un CPL aceptable para este negocio?',
+    })
+  }
+
+  // ── Qué pasa si no se resuelve ───────────────────────────────────────────────
+  let consequence: string | null = null
+  const topGap = gaps[0]
+  if (topGap) {
+    if (negocio < 4) {
+      consequence = 'Sin claridad sobre el negocio, todos los agentes van a trabajar sobre suposiciones — el copy y la estrategia van a fallar cuando se ejecuten.'
+    } else if (audiencia < 4) {
+      consequence = 'Sin audiencia definida, el mensaje va a hablarle a todos y no va a resonar con nadie. El presupuesto de ads se gasta sin conversiones.'
+    } else if (estrategia < 4) {
+      consequence = 'Sin posicionamiento claro, la campaña no va a diferenciarse de la competencia — va a parecer genérica y no va a generar confianza.'
+    } else if (investigacion < 5) {
+      consequence = 'Sin investigación, la estrategia se basa en suposiciones. Un competidor que conoce mejor a la audiencia te va a ganar sin esfuerzo.'
+    } else if (propuestaValor < 5) {
+      consequence = 'Sin propuesta de valor diferenciada, el cliente no entiende por qué elegirte a vos y no a otro. La tasa de conversión va a ser baja.'
+    } else if (copy < 4) {
+      consequence = 'Sin copy sólido, la campaña no puede ejecutarse. Los anuncios sin mensaje claro tienen CTR bajo y costo por clic alto.'
+    } else if (canales < 4) {
+      consequence = 'Sin canales definidos, no hay plan de distribución real. La campaña existe en papel pero no puede llegar a nadie.'
+    } else {
+      consequence = 'Sin métricas claras, no vas a saber si la campaña está funcionando hasta que sea tarde para ajustar.'
+    }
+  }
+
+  // ── Próximo paso recomendado ─────────────────────────────────────────────────
   const lowestCritical = dims
     .filter((d) => ['negocio', 'audiencia', 'estrategia'].includes(d.id))
     .sort((a, b) => a.score - b.score)[0]
@@ -220,14 +271,14 @@ function computeQuality(intakeData?: IntakeData, dna?: CampaignDNA): QualityResu
   let nextStep: { text: string; prompt: string } | null = null
 
   if (level === 1) {
-    if (negocio < 30) {
+    if (negocio < 3) {
       nextStep = {
-        text: 'Describí tu negocio con más detalle: qué problema resuelve y para quién exactamente',
+        text: 'Contá más sobre el negocio y el problema que resuelve',
         prompt: 'Necesito que me hagas más preguntas sobre el negocio. Quiero entender mejor el problema que resuelve y para quién lo resuelve.',
       }
-    } else if (audiencia < 30) {
+    } else if (audiencia < 3) {
       nextStep = {
-        text: 'Definí tu audiencia exacta y cuál es su dolor principal',
+        text: 'Definí la audiencia y su dolor principal',
         prompt: 'Profundizá sobre mi audiencia objetivo. Haceme preguntas para entender quiénes son exactamente, qué los frustra y qué desean lograr.',
       }
     } else {
@@ -238,22 +289,22 @@ function computeQuality(intakeData?: IntakeData, dna?: CampaignDNA): QualityResu
     }
   } else if (level === 2) {
     nextStep = {
-      text: `Mejorá ${lowestCritical.label.toLowerCase()} — es el área más débil de la campaña`,
+      text: `Reforzá ${lowestCritical.label.toLowerCase()} — es el área más débil ahora`,
       prompt: `Quiero mejorar el área de ${lowestCritical.label.toLowerCase()}. Revisá lo que tenemos y proponé cómo fortalecerlo con ejemplos concretos.`,
     }
   } else if (level === 3) {
     nextStep = {
-      text: `Reforzá ${lowestOverall.label.toLowerCase()} para llegar al nivel 4`,
-      prompt: `Para subir la campaña al nivel 4, necesitamos reforzar ${lowestOverall.label.toLowerCase()}. ¿Qué le falta y cómo lo completamos?`,
+      text: `Completá ${lowestOverall.label.toLowerCase()} para llegar al nivel 4`,
+      prompt: `Para subir la campaña al nivel 4, necesitamos completar ${lowestOverall.label.toLowerCase()}. ¿Qué le falta y cómo lo terminamos?`,
     }
   } else {
     nextStep = {
-      text: 'La campaña está lista — podés generar el plan de medios y el copy final',
-      prompt: 'La campaña está en nivel 4. Hacé un resumen ejecutivo de todo lo que se definió y las acciones concretas para los próximos 30 días.',
+      text: 'La campaña está lista — generá el plan de medios y el copy final',
+      prompt: 'La campaña está en nivel 4. Hacé un resumen ejecutivo con todo lo definido y las acciones concretas para los próximos 30 días.',
     }
   }
 
-  return { level, levelName, levelColor, overallScore, dims, blockers, warnings, nextStep }
+  return { level, levelName, levelColor, overallScore, dims, strengths, gaps, consequence, nextStep }
 }
 
 // ── Dimension bar ─────────────────────────────────────────────────────────────
@@ -327,7 +378,7 @@ export default function CampaignQualityPanel({
         </div>
       </div>
 
-      {/* Dimensions */}
+      {/* Dimensions — compact */}
       <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2.5">
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
           Dimensiones
@@ -337,33 +388,36 @@ export default function CampaignQualityPanel({
         ))}
       </div>
 
-      {/* Blockers */}
-      {q.blockers.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
-          <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest">
-            🚫 Bloqueadores
-          </p>
-          {q.blockers.map((b, i) => (
-            <p key={i} className="text-xs text-red-700 leading-relaxed">{b}</p>
+      {/* ✅ Qué está bien hoy */}
+      <div className="bg-green-50 border border-green-200 rounded-xl p-3 space-y-2">
+        <p className="text-[10px] font-bold text-green-700 uppercase tracking-widest">
+          ✅ Qué está bien hoy
+        </p>
+        <ul className="space-y-1.5">
+          {q.strengths.map((s, i) => (
+            <li key={i} className="flex items-start gap-2">
+              <span className="text-green-500 mt-0.5 shrink-0">·</span>
+              <span className="text-xs text-green-800 leading-relaxed">{s}</span>
+            </li>
           ))}
-        </div>
-      )}
+        </ul>
+      </div>
 
-      {/* Warnings */}
-      {q.warnings.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 space-y-3">
-          <p className="text-[10px] font-bold text-yellow-700 uppercase tracking-widest">
-            ⚠️ Advertencias
+      {/* ⚠️ Qué falta resolver */}
+      {q.gaps.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-3">
+          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">
+            ⚠️ Qué falta resolver
           </p>
-          {q.warnings.map((w, i) => (
+          {q.gaps.slice(0, 4).map((g, i) => (
             <div key={i} className="space-y-1.5">
-              <p className="text-xs text-yellow-800 leading-relaxed">{w.text}</p>
+              <p className="text-xs text-amber-800 leading-relaxed">{g.text}</p>
               {onSendPrompt && (
                 <button
-                  onClick={() => onSendPrompt(w.prompt)}
-                  className="text-[11px] font-semibold text-yellow-700 border border-yellow-300 rounded-lg px-2.5 py-1 hover:bg-yellow-100 transition-colors"
+                  onClick={() => onSendPrompt(g.prompt)}
+                  className="text-[11px] font-semibold text-amber-700 border border-amber-300 rounded-lg px-2.5 py-1 hover:bg-amber-100 transition-colors"
                 >
-                  ✦ Proponer solución
+                  Resolver esto →
                 </button>
               )}
             </div>
@@ -371,11 +425,21 @@ export default function CampaignQualityPanel({
         </div>
       )}
 
-      {/* Next step */}
+      {/* 🔥 Qué pasa si no se resuelve */}
+      {q.consequence && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 space-y-1.5">
+          <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">
+            🔥 Qué pasa si no se resuelve
+          </p>
+          <p className="text-xs text-orange-800 leading-relaxed">{q.consequence}</p>
+        </div>
+      )}
+
+      {/* → Próximo paso recomendado */}
       {q.nextStep && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
           <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
-            → Próximo paso
+            → Próximo paso recomendado
           </p>
           <p className="text-xs text-blue-800 leading-relaxed">{q.nextStep.text}</p>
           {onSendPrompt && (
@@ -389,14 +453,14 @@ export default function CampaignQualityPanel({
         </div>
       )}
 
-      {/* Level 3+ unlock message */}
+      {/* Nivel 4 unlock */}
       {q.level >= 3 && (
         <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-3">
-          <p className="text-[10px] font-bold text-purple-600 uppercase tracking-widest mb-2">
+          <p className="text-[10px] font-bold text-purple-600 uppercase tracking-widest mb-1.5">
             🔓 Desbloqueado
           </p>
           <p className="text-xs text-purple-700 leading-relaxed">
-            La campaña tiene suficiente estructura. Podés continuar con el Investigador y el Copywriter para generar el copy y plan de medios final.
+            La campaña tiene estructura sólida. Podés continuar con el Investigador y el Copywriter.
           </p>
         </div>
       )}
