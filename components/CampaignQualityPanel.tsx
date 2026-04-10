@@ -42,9 +42,12 @@ interface CampaignDNA {
   }
 }
 
+type AgentOwner = 'strategist' | 'researcher' | 'copywriter'
+
 export interface QualityPanelProps {
   intakeData?: IntakeData
   campaignDna?: CampaignDNA
+  currentAgentType?: AgentOwner
   onSendPrompt?: (text: string) => void
 }
 
@@ -79,7 +82,7 @@ interface QualityResult {
   overallScore: number
   dims: { id: string; label: string; score: number }[]
   strengths: string[]
-  gaps: { text: string; prompt: string }[]
+  gaps: { text: string; prompt: string; agentOwner: AgentOwner }[]
   consequence: string | null
   nextStep: { text: string; prompt: string } | null
 }
@@ -188,53 +191,61 @@ function computeQuality(intakeData?: IntakeData, dna?: CampaignDNA): QualityResu
   }
 
   // ── Qué falta resolver ───────────────────────────────────────────────────────
-  const gaps: { text: string; prompt: string }[] = []
+  const gaps: { text: string; prompt: string; agentOwner: AgentOwner }[] = []
   if (negocio < 4) {
     gaps.push({
       text: 'La descripción del negocio necesita más profundidad',
       prompt: 'Necesito que me hagas más preguntas sobre el negocio para entender mejor el problema que resuelve y para quién.',
+      agentOwner: 'strategist',
     })
   }
   if (audiencia < 4) {
     gaps.push({
       text: 'La audiencia no está suficientemente definida',
       prompt: 'Profundizá sobre mi audiencia objetivo: quiénes son exactamente, qué los frustra y qué desean lograr.',
+      agentOwner: 'strategist',
     })
   }
   if (estrategia < 4 && negocio >= 4) {
     gaps.push({
       text: 'Falta posicionamiento claro y mensajes clave',
       prompt: 'Trabajemos en el posicionamiento: ¿cómo queremos que nos perciba la audiencia vs la competencia? Dame 3 opciones de posicionamiento.',
+      agentOwner: 'strategist',
     })
   }
   if (investigacion < 5 && negocio >= 4) {
     gaps.push({
       text: 'La investigación competitiva está incompleta',
-      prompt: 'Profundizá el análisis competitivo: los 3 principales competidores y cuál es nuestra ventaja real sobre ellos.',
+      prompt: 'Generá el análisis completo: tamaño de mercado, los 3 principales competidores, pain points de la audiencia y la gran oportunidad. Incluí el bloque research-output al final.',
+      agentOwner: 'researcher',
     })
   }
   if (propuestaValor < 5 && estrategia >= 4) {
     gaps.push({
       text: 'La propuesta de valor no está diferenciada todavía',
       prompt: 'Trabajemos en la propuesta de valor única: ¿qué hace que este negocio sea irremplazable para su audiencia? Dame opciones concretas.',
+      agentOwner: 'strategist',
     })
   }
   if (copy < 4 && estrategia >= 5) {
     gaps.push({
       text: 'El copy no está desarrollado — falta tagline y mensajes',
-      prompt: 'Generá el copy base: tagline principal, 5 headlines y 3 CTAs que conecten con los dolores de la audiencia.',
+      prompt: 'Generá el copy base: tagline principal, 5 headlines y 3 CTAs que conecten con los dolores de la audiencia. Incluí el bloque copy-output al final.',
+      agentOwner: 'copywriter',
     })
   }
   if (canales < 4 && estrategia >= 4) {
     gaps.push({
       text: 'No están definidos los canales de distribución',
       prompt: 'Definamos los canales: ¿dónde está la audiencia y qué canales priorizar para llegar con el menor costo posible?',
+      agentOwner: 'strategist',
     })
   }
   if (metricas < 3 && negocio >= 4) {
     gaps.push({
       text: 'Faltan métricas concretas de éxito',
       prompt: 'Definamos métricas concretas: ¿cuántos leads por mes es el objetivo? ¿Cuál sería un CPL aceptable para este negocio?',
+      agentOwner: 'researcher',
     })
   }
 
@@ -340,9 +351,16 @@ function DimBar({ label, score }: { label: string; score: number }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+const AGENT_LABEL: Record<AgentOwner, string> = {
+  strategist: 'Estratega',
+  researcher: 'Investigador',
+  copywriter: 'Copywriter',
+}
+
 export default function CampaignQualityPanel({
   intakeData,
   campaignDna,
+  currentAgentType,
   onSendPrompt,
 }: QualityPanelProps) {
   const q = useMemo(
@@ -409,19 +427,26 @@ export default function CampaignQualityPanel({
           <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">
             ⚠️ Qué falta resolver
           </p>
-          {q.gaps.slice(0, 4).map((g, i) => (
-            <div key={i} className="space-y-1.5">
-              <p className="text-xs text-amber-800 leading-relaxed">{g.text}</p>
-              {onSendPrompt && (
-                <button
-                  onClick={() => onSendPrompt(g.prompt)}
-                  className="text-[11px] font-semibold text-amber-700 border border-amber-300 rounded-lg px-2.5 py-1 hover:bg-amber-100 transition-colors"
-                >
-                  Resolver esto →
-                </button>
-              )}
-            </div>
-          ))}
+          {q.gaps.slice(0, 4).map((g, i) => {
+            const isCurrentAgent = !currentAgentType || g.agentOwner === currentAgentType
+            return (
+              <div key={i} className="space-y-1.5">
+                <p className="text-xs text-amber-800 leading-relaxed">{g.text}</p>
+                {isCurrentAgent && onSendPrompt ? (
+                  <button
+                    onClick={() => onSendPrompt(g.prompt)}
+                    className="text-[11px] font-semibold text-amber-700 border border-amber-300 rounded-lg px-2.5 py-1 hover:bg-amber-100 transition-colors"
+                  >
+                    Resolver esto →
+                  </button>
+                ) : currentAgentType && !isCurrentAgent ? (
+                  <p className="text-[11px] text-amber-500 italic">
+                    Lo resuelve el Agente {AGENT_LABEL[g.agentOwner]}
+                  </p>
+                ) : null}
+              </div>
+            )
+          })}
         </div>
       )}
 

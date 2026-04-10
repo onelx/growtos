@@ -878,6 +878,7 @@ export default function AgentPage() {
           <CampaignQualityPanel
             intakeData={intakeData as any}
             campaignDna={campaignDna as any}
+            currentAgentType={agentType as AgentKey}
             onSendPrompt={handleDirectSend}
           />
         ) : (
