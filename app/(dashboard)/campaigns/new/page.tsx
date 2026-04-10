@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import CampaignMemoryPanel from '@/components/CampaignMemoryPanel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -478,7 +479,8 @@ export default function NewCampaignPage() {
 
   // ── Render: Chat ──────────────────────────────────────────────────────────
   return (
-    <div className="max-w-3xl mx-auto flex flex-col" style={{ height: 'calc(100vh - 140px)' }}>
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4" style={{ height: 'calc(100vh - 140px)' }}>
+    <div className="flex flex-col min-h-0">
       {/* Top bar */}
       <div className="flex items-center gap-3 mb-4 flex-shrink-0">
         <button
@@ -591,6 +593,16 @@ export default function NewCampaignPage() {
           </div>
         )}
       </div>
+    </div> {/* end left chat column */}
+
+    {/* ── Right: Memory panel (desktop only) ── */}
+    <div className="hidden lg:flex flex-col min-h-0 overflow-y-auto">
+      <CampaignMemoryPanel
+        intakeData={messages.find(m => m.brief)?.brief as any}
+        currentAgentType="intake"
+      />
+    </div>
+
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import CampaignMemoryPanel, { type CampaignDNA } from '@/components/CampaignMemoryPanel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -203,6 +204,9 @@ export default function AgentPage() {
   const [isSaved, setIsSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [outputData, setOutputData] = useState<Record<string, unknown> | null>(null)
+  const [liveOutput, setLiveOutput] = useState<Record<string, unknown> | null>(null)
+  const [intakeData, setIntakeData] = useState<Record<string, unknown> | undefined>()
+  const [campaignDna, setCampaignDna] = useState<CampaignDNA | undefined>()
 
   const conversationHistoryRef = useRef<ConversationMessage[]>([])
   const accumulatedTextRef = useRef<string>('')
@@ -273,6 +277,9 @@ export default function AgentPage() {
               setMessages((prev) =>
                 prev.map((m) => m.id === msgId ? { ...m, displayContent: visible } : m)
               )
+              // Update live output for memory panel
+              const partial = parseOutput(accumulatedTextRef.current)
+              if (partial) setLiveOutput(partial)
             }
           } catch (e) {
             if (e instanceof Error && !e.message.startsWith('Unexpected token')) throw e
@@ -326,12 +333,26 @@ export default function AgentPage() {
         }),
       })
       setIsSaved(true)
+      setCampaignDna((prev) => ({ ...prev, [config.outputKey]: data }))
     } catch {
       // Non-critical — output is still shown
     } finally {
       setIsSaving(false)
     }
   }, [campaignId, config])
+
+  // ── Fetch campaign data for memory panel ──────────────────────────────────
+  useEffect(() => {
+    fetch(`/api/campaigns/${campaignId}`)
+      .then((r) => r.json())
+      .then(({ campaign }) => {
+        if (campaign) {
+          setIntakeData(campaign.intake_data)
+          setCampaignDna(campaign.campaign_dna)
+        }
+      })
+      .catch(() => {})
+  }, [campaignId])
 
   // ── Auto-start on mount ───────────────────────────────────────────────────
   useEffect(() => {
@@ -400,7 +421,10 @@ export default function AgentPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col" style={{ height: 'calc(100vh - 140px)' }}>
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4" style={{ height: 'calc(100vh - 140px)' }}>
+
+    {/* ── Left: Chat ── */}
+    <div className="flex flex-col min-h-0">
       {/* Top bar */}
       <div className="flex items-center gap-3 mb-4 flex-shrink-0">
         <button
@@ -515,6 +539,18 @@ export default function AgentPage() {
           </p>
         </div>
       </div>
+    </div> {/* end left chat column */}
+
+    {/* ── Right: Memory panel (desktop only) ── */}
+    <div className="hidden lg:flex flex-col min-h-0 overflow-y-auto">
+      <CampaignMemoryPanel
+        intakeData={intakeData as any}
+        campaignDna={campaignDna}
+        currentAgentType={agentType as 'strategist' | 'researcher' | 'copywriter'}
+        liveOutput={liveOutput ?? undefined}
+      />
+    </div>
+
     </div>
   )
 }
