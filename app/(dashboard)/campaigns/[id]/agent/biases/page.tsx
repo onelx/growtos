@@ -17,6 +17,10 @@ interface BiasesOutput {
   scarcityBias: BiasEntry
   anchoringBias: BiasEntry
   commitmentBias: BiasEntry
+  haloBias: BiasEntry
+  bandwagonBias: BiasEntry
+  contrastBias: BiasEntry
+  sunkCostBias: BiasEntry
 }
 
 type BiasKey = keyof BiasesOutput
@@ -29,6 +33,10 @@ const EMPTY_BIASES: BiasesOutput = {
   scarcityBias:     { ...EMPTY_BIAS },
   anchoringBias:    { ...EMPTY_BIAS },
   commitmentBias:   { ...EMPTY_BIAS },
+  haloBias:         { ...EMPTY_BIAS },
+  bandwagonBias:    { ...EMPTY_BIAS },
+  contrastBias:     { ...EMPTY_BIAS },
+  sunkCostBias:     { ...EMPTY_BIAS },
 }
 
 interface BiasConfig {
@@ -93,11 +101,51 @@ const BIASES: BiasConfig[] = [
     helpExample: '"Empezá gratis hoy — sin tarjeta, sin compromiso. Solo respondé 3 preguntas sobre tu negocio y te mostramos qué podés mejorar esta semana." El cuestionario crea compromiso antes de cualquier venta.',
     refinePlaceholder: 'Ej: Tenemos una prueba gratis de 14 días. También hacemos onboarding con una sesión de diagnóstico gratis para validar si somos una buena opción...',
   },
+  {
+    key: 'haloBias',
+    label: 'Efecto Halo',
+    icon: '✨',
+    tagColor: 'amber',
+    description: 'Una característica estelar irradia al producto entero',
+    helpText: 'Tendemos a juzgar el total de algo basándonos en una sola característica sobresaliente. Si destacás UN atributo muy positivo y concreto, el consumidor asume que todo lo demás también es excelente. El truco es elegir la característica que más le importa a tu audiencia específica.',
+    helpExample: 'Apple presenta el iPhone como "el más rápido del mercado" y la gente asume que también es el mejor en diseño, cámara y durabilidad, aunque no lo haya comprobado. Tu producto necesita su "el más rápido".',
+    refinePlaceholder: 'Ej: Nuestra característica más fuerte es el soporte 24/7 en español. Los clientes también destacan mucho la facilidad de uso en las reseñas...',
+  },
+  {
+    key: 'bandwagonBias',
+    label: 'Sesgo de Bandwagon',
+    icon: '🚂',
+    tagColor: 'orange',
+    description: 'Si todos lo usan, debe ser bueno — la prueba social escala',
+    helpText: 'La gente tiende a adoptar creencias y comportamientos que percibe como mayoritarios. No es necesario tener miles de clientes — basta con mostrar evidencia de que "muchos ya eligieron esto". Números, nombres, comunidades, testimonios y logos de clientes activan este sesgo.',
+    helpExample: '"Más de 1.200 emprendedores de Argentina ya usan GrowthOS" o "Usada por emprendedores de Mercado Libre, Tienda Nube y PedidosYa" activan bandwagon por volumen y por asociación de marca.',
+    refinePlaceholder: 'Ej: Tenemos 340 clientes activos, 90% renueva. Algunos son de marcas conocidas como X e Y. También tenemos un grupo de WhatsApp con 600 miembros...',
+  },
+  {
+    key: 'contrastBias',
+    label: 'Sesgo de Contraste',
+    icon: '⚖️',
+    tagColor: 'teal',
+    description: 'Al lado de la peor opción, tu producto brilla solo',
+    helpText: 'Percibimos el valor de algo en relación a con qué lo comparamos, no en términos absolutos. Si presentás tu producto junto a una alternativa claramente inferior (o al costo del problema sin resolver), tu oferta parece extraordinariamente valiosa. La clave es elegir el contraste correcto.',
+    helpExample: '"Una agencia te cobra $2.000 USD/mes sin garantías. GrowthOS te da las mismas herramientas por $97/mes, vos al volante." El contraste hace que $97 parezca ridículamente barato, aunque en absoluto no lo sea.',
+    refinePlaceholder: 'Ej: El alternativa más cara es X a $Y/mes. También hay una versión manual (hojas de cálculo + freelancers) que les cuesta mucho tiempo...',
+  },
+  {
+    key: 'sunkCostBias',
+    label: 'Costo Hundido',
+    icon: '💸',
+    tagColor: 'rose',
+    description: 'Lo invertido genera compromiso — usalo para retener y upgradear',
+    helpText: 'Las personas tendemos a continuar invirtiendo en algo porque ya invertimos antes, aunque racionalmente no tenga sentido. En marketing, esto se usa éticamente para aumentar retención, reducir churn y motivar upgrades: el cliente ya invirtió tiempo/datos/dinero, cancelar se siente como "perder todo eso".',
+    helpExample: 'Cuando un usuario completó su perfil, cargó su historial y configuró sus campañas, cancelar GrowthOS significa perder todo ese trabajo. Un recordatorio de "ya tenés X campañas configuradas" activa este sesgo antes de que cancele.',
+    refinePlaceholder: 'Ej: Nuestros usuarios invierten tiempo en configurar su cuenta los primeros 7 días. También cargamos datos históricos de sus campañas anteriores...',
+  },
 ]
 
-// Left: 3 cards, Right: 2 cards
-const LEFT_BIASES = BIASES.slice(0, 3)
-const RIGHT_BIASES = BIASES.slice(3)
+// 5 left, 4 right (with tip card on right)
+const LEFT_BIASES = BIASES.slice(0, 5)
+const RIGHT_BIASES = BIASES.slice(5)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -113,6 +161,10 @@ const TAG_COLORS: Record<string, string> = {
   red:    'bg-red-50 text-red-600 border-red-100',
   cyan:   'bg-cyan-50 text-cyan-700 border-cyan-100',
   green:  'bg-green-50 text-green-700 border-green-100',
+  amber:  'bg-amber-50 text-amber-700 border-amber-100',
+  orange: 'bg-orange-50 text-orange-700 border-orange-100',
+  teal:   'bg-teal-50 text-teal-700 border-teal-100',
+  rose:   'bg-rose-50 text-rose-700 border-rose-100',
 }
 
 const ACCENT_COLORS: Record<string, string> = {
@@ -121,6 +173,10 @@ const ACCENT_COLORS: Record<string, string> = {
   red:    'from-red-500 to-orange-500',
   cyan:   'from-cyan-500 to-teal-600',
   green:  'from-green-500 to-emerald-600',
+  amber:  'from-amber-400 to-yellow-500',
+  orange: 'from-orange-500 to-amber-600',
+  teal:   'from-teal-500 to-cyan-600',
+  rose:   'from-rose-500 to-pink-600',
 }
 
 const COPY_BG: Record<string, string> = {
@@ -129,6 +185,10 @@ const COPY_BG: Record<string, string> = {
   red:    'bg-red-50 border-red-100',
   cyan:   'bg-cyan-50 border-cyan-100',
   green:  'bg-green-50 border-green-100',
+  amber:  'bg-amber-50 border-amber-100',
+  orange: 'bg-orange-50 border-orange-100',
+  teal:   'bg-teal-50 border-teal-100',
+  rose:   'bg-rose-50 border-rose-100',
 }
 
 // ── InfoPanel ─────────────────────────────────────────────────────────────────
