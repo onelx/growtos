@@ -118,7 +118,7 @@ export default function CampaignDetailPage() {
             >
               {campaign.status === 'completed'
                 ? 'Completada'
-                : campaign.status === 'in_progress'
+                : ['strategist', 'researcher', 'copywriter'].includes(campaign.status)
                 ? 'En progreso'
                 : 'Pendiente'}
             </span>
