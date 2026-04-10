@@ -108,6 +108,7 @@ export default function DashboardPage() {
             <CampaignCard
               key={campaign.id}
               campaign={campaign}
+              onView={(id) => router.push(`/campaigns/${id}`)}
               onDelete={handleDelete}
             />
           ))}
