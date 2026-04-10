@@ -7,15 +7,29 @@ import CampaignQualityPanel from '@/components/CampaignQualityPanel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+type ContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+
 interface ConversationMessage {
   role: 'user' | 'assistant'
-  content: string
+  content: string | ContentBlock[]
+}
+
+interface AttachedFile {
+  name: string
+  kind: 'image' | 'text'
+  content: string       // base64 for images, plain text for .txt
+  mimeType: string
+  previewUrl?: string   // data URL shown in bubble
 }
 
 interface DisplayMessage {
   id: string
   role: 'user' | 'assistant'
   displayContent: string
+  attachmentName?: string
+  attachmentPreview?: string   // data URL for image thumbnail
   outputData?: Record<string, unknown>
   isStreaming: boolean
 }
@@ -86,9 +100,7 @@ function parseBlock(content: string, regex: RegExp): Record<string, unknown> | n
 }
 
 function stripBlock(content: string, regex: RegExp): string {
-  // Remove complete block
   let result = content.replace(regex, '').trim()
-  // Also remove any incomplete/truncated block (no closing ```)
   result = result.replace(/```(?:strategy|research|copy)-output[\s\S]*$/, '').trim()
   return result
 }
@@ -223,20 +235,55 @@ export default function AgentPage() {
   const [liveOutput, setLiveOutput] = useState<Record<string, unknown> | null>(null)
   const [intakeData, setIntakeData] = useState<Record<string, unknown> | undefined>()
   const [campaignDna, setCampaignDna] = useState<CampaignDNA | undefined>()
-  // Memory persistence
   const [conversationLoaded, setConversationLoaded] = useState(false)
   const [hasSavedHistory, setHasSavedHistory] = useState(false)
-  // Right panel tab
   const [rightTab, setRightTab] = useState<'quality' | 'memory'>('quality')
+  const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
 
   const conversationHistoryRef = useRef<ConversationMessage[]>([])
   const accumulatedTextRef = useRef<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // ── Stop streaming ────────────────────────────────────────────────────────
+  const stopStreaming = useCallback(() => {
+    abortControllerRef.current?.abort()
+  }, [])
+
+  // ── File attachment handler ───────────────────────────────────────────────
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setFileError(null)
+
+    const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+
+    if (imageTypes.includes(file.type)) {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const dataUrl = reader.result as string
+        const base64 = dataUrl.split(',')[1]
+        setAttachedFile({ name: file.name, kind: 'image', content: base64, mimeType: file.type, previewUrl: dataUrl })
+      }
+      reader.readAsDataURL(file)
+    } else if (file.type === 'text/plain') {
+      const reader = new FileReader()
+      reader.onload = () => {
+        setAttachedFile({ name: file.name, kind: 'text', content: reader.result as string, mimeType: file.type })
+      }
+      reader.readAsText(file)
+    } else {
+      setFileError('PDF y DOC próximamente — por ahora copiá y pegá el texto.')
+    }
+  }, [])
 
   // ── Stream agent response ─────────────────────────────────────────────────
   const streamAgentResponse = useCallback(async (msgs: ConversationMessage[]) => {
@@ -252,11 +299,15 @@ export default function AgentPage() {
       { id: msgId, role: 'assistant', displayContent: '', isStreaming: true },
     ])
 
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+
     try {
       const res = await fetch(`/api/agents/${agentType}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ campaignId, messages: msgs }),
+        signal: abortController.signal,
       })
 
       if (!res.ok) throw new Error(`Error ${res.status}`)
@@ -306,14 +357,28 @@ export default function AgentPage() {
       )
 
       if (parsed) await saveOutput(parsed)
-
-      // Save conversation history to Supabase
       await saveConversation(newHistory)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido')
-      setMessages((prev) => prev.filter((m) => m.id !== msgId))
+      if (err instanceof Error && err.name === 'AbortError') {
+        // User stopped — finalize with whatever was accumulated
+        const fullText = accumulatedTextRef.current
+        const parsed = parseBlock(fullText, config.outputRegex)
+        const visible = stripBlock(fullText, config.outputRegex)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId
+              ? { ...m, displayContent: visible || '_(detenido)_', outputData: parsed ?? undefined, isStreaming: false }
+              : m
+          )
+        )
+        if (parsed) await saveOutput(parsed)
+      } else {
+        setError(err instanceof Error ? err.message : 'Error desconocido')
+        setMessages((prev) => prev.filter((m) => m.id !== msgId))
+      }
     } finally {
       setIsStreaming(false)
+      abortControllerRef.current = null
     }
   }, [agentType, campaignId, config])
 
@@ -324,14 +389,10 @@ export default function AgentPage() {
     try {
       setCampaignDna((prev) => {
         const updated = { ...prev, [config.outputKey]: data }
-        // Fire-and-forget PATCH with the merged DNA
         fetch(`/api/campaigns/${campaignId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            campaign_dna: updated,
-            status: config.doneStatus,
-          }),
+          body: JSON.stringify({ campaign_dna: updated, status: config.doneStatus }),
         }).catch(() => {})
         return updated
       })
@@ -343,8 +404,19 @@ export default function AgentPage() {
 
   // ── Save conversation history ─────────────────────────────────────────────
   const saveConversation = useCallback(async (history: ConversationMessage[]) => {
+    // Serialize messages — strip base64 image data before saving to DB
+    const safeHistory = history.map((m) => {
+      if (Array.isArray(m.content)) {
+        const textParts = m.content
+          .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+          .map((b) => b.text)
+          .join('\n')
+        return { ...m, content: textParts }
+      }
+      return m
+    })
     setCampaignDna((prev) => {
-      const conversations = { ...(prev as any)?.conversations, [agentType]: history }
+      const conversations = { ...(prev as any)?.conversations, [agentType]: safeHistory }
       const updated = { ...prev, conversations }
       fetch(`/api/campaigns/${campaignId}`, {
         method: 'PATCH',
@@ -370,16 +442,16 @@ export default function AgentPage() {
 
         if (savedHistory && savedHistory.length > 0) {
           conversationHistoryRef.current = savedHistory
-          // Reconstruct display messages from saved history
           const restored: DisplayMessage[] = savedHistory.map((msg) => {
             if (msg.role === 'user') {
-              return { id: crypto.randomUUID(), role: 'user' as const, displayContent: msg.content, isStreaming: false }
+              return { id: crypto.randomUUID(), role: 'user' as const, displayContent: msg.content as string, isStreaming: false }
             }
-            const outputData = parseBlock(msg.content, config.outputRegex)
+            const content = typeof msg.content === 'string' ? msg.content : ''
+            const outputData = parseBlock(content, config.outputRegex)
             return {
               id: crypto.randomUUID(),
               role: 'assistant' as const,
-              displayContent: stripBlock(msg.content, config.outputRegex),
+              displayContent: stripBlock(content, config.outputRegex),
               outputData: outputData ?? undefined,
               isStreaming: false,
             }
@@ -401,24 +473,63 @@ export default function AgentPage() {
   // ── Send follow-up ────────────────────────────────────────────────────────
   const handleSend = useCallback(async () => {
     const text = input.trim()
-    if (!text || isStreaming) return
+    if ((!text && !attachedFile) || isStreaming) return
 
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    setFileError(null)
+
+    // Build message content for the API
+    let apiContent: string | ContentBlock[]
+    let displayContent: string
+    let historyContent: string | ContentBlock[]
+
+    if (attachedFile?.kind === 'image') {
+      apiContent = [
+        { type: 'image', source: { type: 'base64', media_type: attachedFile.mimeType, data: attachedFile.content } },
+        { type: 'text', text: text || 'Analizá esta imagen en el contexto de la campaña.' },
+      ]
+      displayContent = text || ''
+      historyContent = apiContent
+    } else if (attachedFile?.kind === 'text') {
+      const fileContext = `Archivo adjunto (${attachedFile.name}):\n\`\`\`\n${attachedFile.content}\n\`\`\`\n\n${text || ''}`
+      apiContent = fileContext
+      displayContent = text || ''
+      historyContent = fileContext
+    } else {
+      apiContent = text
+      displayContent = text
+      historyContent = text
+    }
+
+    const fileToShow = attachedFile
+    setAttachedFile(null)
 
     const newHistory: ConversationMessage[] = [
       ...conversationHistoryRef.current,
-      { role: 'user', content: text },
+      { role: 'user', content: historyContent },
     ]
     conversationHistoryRef.current = newHistory
 
     setMessages((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), role: 'user', displayContent: text, isStreaming: false },
+      {
+        id: crypto.randomUUID(),
+        role: 'user',
+        displayContent,
+        attachmentName: fileToShow?.name,
+        attachmentPreview: fileToShow?.previewUrl,
+        isStreaming: false,
+      },
     ])
 
-    await streamAgentResponse(newHistory)
-  }, [input, isStreaming, streamAgentResponse])
+    // Replace last history message with api-ready content
+    const apiHistory: ConversationMessage[] = [
+      ...conversationHistoryRef.current.slice(0, -1),
+      { role: 'user', content: apiContent },
+    ]
+    await streamAgentResponse(apiHistory)
+  }, [input, attachedFile, isStreaming, streamAgentResponse])
 
   // ── Direct send from quality panel buttons ───────────────────────────────
   const handleDirectSend = useCallback(async (text: string) => {
@@ -454,7 +565,6 @@ export default function AgentPage() {
     if (config.nextAgent) {
       router.push(`/campaigns/${campaignId}/agent/${config.nextAgent}`)
     } else {
-      // Completed — mark as completed and go to campaign
       await fetch(`/api/campaigns/${campaignId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -471,6 +581,8 @@ export default function AgentPage() {
       </div>
     )
   }
+
+  const canSend = (input.trim().length > 0 || attachedFile !== null) && !isStreaming
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4" style={{ height: 'calc(100vh - 140px)' }}>
@@ -510,8 +622,34 @@ export default function AgentPage() {
             if (msg.role === 'user') {
               return (
                 <div key={msg.id} className="flex justify-end">
-                  <div className="max-w-[78%] bg-gradient-to-br from-purple-600 to-blue-600 text-white rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
-                    {msg.displayContent}
+                  <div className="max-w-[78%] space-y-1.5">
+                    {/* Image preview */}
+                    {msg.attachmentPreview && (
+                      <div className="flex justify-end">
+                        <img
+                          src={msg.attachmentPreview}
+                          alt={msg.attachmentName}
+                          className="max-h-40 max-w-full rounded-xl object-cover border border-gray-200 shadow-sm"
+                        />
+                      </div>
+                    )}
+                    {/* Text file chip */}
+                    {msg.attachmentName && !msg.attachmentPreview && (
+                      <div className="flex justify-end">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium border border-gray-200">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          {msg.attachmentName}
+                        </span>
+                      </div>
+                    )}
+                    {/* Message text */}
+                    {msg.displayContent && (
+                      <div className="bg-gradient-to-br from-purple-600 to-blue-600 text-white rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
+                        {msg.displayContent}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -534,14 +672,12 @@ export default function AgentPage() {
                     )}
                   </div>
 
-                  {/* Saved indicator — no inline cards, results live in the right panel */}
                   {msg.outputData && !msg.isStreaming && (
                     <p className="text-[11px] text-gray-400 mt-1.5 ml-1">
                       ✓ Resultado guardado en el panel →
                     </p>
                   )}
 
-                  {/* Continue button — only on last assistant message with output */}
                   {msg.outputData && isLast && !isStreaming && (
                     <div className="mt-4">
                       <button
@@ -566,40 +702,121 @@ export default function AgentPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input — always visible for follow-up questions */}
+        {/* Input area */}
         <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 p-3">
+
+          {/* File error */}
+          {fileError && (
+            <div className="mb-2 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <p className="text-xs text-amber-700">{fileError}</p>
+              <button onClick={() => setFileError(null)} className="text-amber-500 hover:text-amber-700 ml-2">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {/* Attached file chip */}
+          {attachedFile && (
+            <div className="mb-2 flex items-center gap-2">
+              {attachedFile.previewUrl ? (
+                <div className="relative">
+                  <img src={attachedFile.previewUrl} alt={attachedFile.name} className="h-14 w-14 rounded-lg object-cover border border-gray-200" />
+                  <button
+                    onClick={() => setAttachedFile(null)}
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-gray-700 text-white rounded-full flex items-center justify-center hover:bg-gray-900"
+                  >
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full px-3 py-1.5 text-xs font-medium">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {attachedFile.name}
+                  <button onClick={() => setAttachedFile(null)} className="ml-1 hover:text-blue-900">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Input row */}
           <div className="flex gap-2 items-end bg-white rounded-xl border border-gray-200 px-3 py-2 focus-within:border-purple-400 transition-colors shadow-sm">
+            {/* Paperclip / attach */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isStreaming}
+              className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-30 transition-colors flex-shrink-0 mb-0.5"
+              title="Adjuntar imagen o archivo de texto"
+            >
+              <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            </button>
+
             <textarea
               ref={textareaRef}
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={isStreaming ? 'El agente está trabajando...' : 'Hacé una pregunta o pedí ajustes...'}
+              placeholder={isStreaming ? 'El agente está trabajando...' : attachedFile ? 'Añadí un mensaje o enviá solo el archivo...' : 'Hacé una pregunta o pedí ajustes...'}
               rows={1}
               disabled={isStreaming}
               className="flex-1 bg-transparent resize-none outline-none text-gray-800 placeholder-gray-400 text-sm leading-relaxed disabled:text-gray-400"
               style={{ minHeight: '24px', maxHeight: '160px' }}
             />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || isStreaming}
-              className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600 text-white rounded-lg disabled:opacity-30 hover:opacity-90 transition-opacity flex-shrink-0"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            </button>
+
+            {/* Stop button (while streaming) */}
+            {isStreaming ? (
+              <button
+                onClick={stopStreaming}
+                className="flex items-center gap-1.5 px-3 h-8 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold transition-colors flex-shrink-0"
+              >
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <rect x="6" y="6" width="12" height="12" rx="1" />
+                </svg>
+                Detener
+              </button>
+            ) : (
+              <button
+                onClick={handleSend}
+                disabled={!canSend}
+                className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600 text-white rounded-lg disabled:opacity-30 hover:opacity-90 transition-opacity flex-shrink-0"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </button>
+            )}
           </div>
+
           <p className="text-xs text-gray-400 mt-1.5 ml-1">
-            Podés pedir cambios o refinamientos · Enter para enviar
+            {isStreaming ? 'Podés detener la respuesta en cualquier momento' : 'Enter para enviar · Shift+Enter para nueva línea · 📎 adjuntá imágenes o .txt'}
           </p>
+
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp,text/plain"
+            onChange={handleFileChange}
+            className="hidden"
+          />
         </div>
       </div>
     </div> {/* end left chat column */}
 
     {/* ── Right: Quality + Memory panel (desktop only) ── */}
     <div className="hidden lg:flex flex-col min-h-0">
-      {/* Tabs */}
       <div className="flex gap-1 mb-3 bg-gray-100 rounded-xl p-1 flex-shrink-0">
         {(['quality', 'memory'] as const).map((tab) => (
           <button
@@ -616,7 +833,6 @@ export default function AgentPage() {
         ))}
       </div>
 
-      {/* Tab content */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         {rightTab === 'quality' ? (
           <CampaignQualityPanel
