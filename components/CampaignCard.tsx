@@ -121,7 +121,7 @@ const CampaignCard: React.FC<CampaignCardProps> = ({
             <p className="text-sm text-gray-600 line-clamp-2">
               {typeof campaign.intake_data === 'string' 
                 ? campaign.intake_data 
-                : campaign.intake_data.description || 'Sin descripción'}
+                : campaign.intake_data.businessDescription || 'Sin descripción'}
             </p>
           </div>
         )}
