@@ -266,6 +266,11 @@ export default function AgentPage() {
 
     const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
 
+    if (file.size > 4 * 1024 * 1024) {
+      setFileError('El archivo debe ser menor a 4 MB.')
+      return
+    }
+
     if (imageTypes.includes(file.type)) {
       const reader = new FileReader()
       reader.onload = () => {
@@ -286,7 +291,10 @@ export default function AgentPage() {
   }, [])
 
   // ── Stream agent response ─────────────────────────────────────────────────
-  const streamAgentResponse = useCallback(async (msgs: ConversationMessage[]) => {
+  const streamAgentResponse = useCallback(async (
+    msgs: ConversationMessage[],
+    onAbort?: () => void,
+  ) => {
     if (!config) return
     setIsStreaming(true)
     setError(null)
@@ -360,18 +368,9 @@ export default function AgentPage() {
       await saveConversation(newHistory)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        // User stopped — finalize with whatever was accumulated
-        const fullText = accumulatedTextRef.current
-        const parsed = parseBlock(fullText, config.outputRegex)
-        const visible = stripBlock(fullText, config.outputRegex)
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === msgId
-              ? { ...m, displayContent: visible || '_(detenido)_', outputData: parsed ?? undefined, isStreaming: false }
-              : m
-          )
-        )
-        if (parsed) await saveOutput(parsed)
+        // User stopped — remove the assistant bubble and revert the user message
+        setMessages((prev) => prev.filter((m) => m.id !== msgId))
+        onAbort?.()
       } else {
         setError(err instanceof Error ? err.message : 'Error desconocido')
         setMessages((prev) => prev.filter((m) => m.id !== msgId))
@@ -487,7 +486,7 @@ export default function AgentPage() {
     if (attachedFile?.kind === 'image') {
       apiContent = [
         { type: 'image', source: { type: 'base64', media_type: attachedFile.mimeType, data: attachedFile.content } },
-        { type: 'text', text: text || 'Analizá esta imagen en el contexto de la campaña.' },
+        { type: 'text', text: text || '(imagen adjunta)' },
       ]
       displayContent = text || ''
       historyContent = apiContent
@@ -505,6 +504,9 @@ export default function AgentPage() {
     const fileToShow = attachedFile
     setAttachedFile(null)
 
+    const historyBeforeSend = [...conversationHistoryRef.current]
+    const userMsgId = crypto.randomUUID()
+
     const newHistory: ConversationMessage[] = [
       ...conversationHistoryRef.current,
       { role: 'user', content: historyContent },
@@ -514,7 +516,7 @@ export default function AgentPage() {
     setMessages((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: userMsgId,
         role: 'user',
         displayContent,
         attachmentName: fileToShow?.name,
@@ -523,12 +525,16 @@ export default function AgentPage() {
       },
     ])
 
-    // Replace last history message with api-ready content
     const apiHistory: ConversationMessage[] = [
-      ...conversationHistoryRef.current.slice(0, -1),
+      ...historyBeforeSend,
       { role: 'user', content: apiContent },
     ]
-    await streamAgentResponse(apiHistory)
+
+    await streamAgentResponse(apiHistory, () => {
+      // Revert: remove user bubble and restore history
+      conversationHistoryRef.current = historyBeforeSend
+      setMessages((prev) => prev.filter((m) => m.id !== userMsgId))
+    })
   }, [input, attachedFile, isStreaming, streamAgentResponse])
 
   // ── Direct send from quality panel buttons ───────────────────────────────
