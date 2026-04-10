@@ -450,6 +450,20 @@ export default function ResearcherPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId])
 
+  // ── Auto-save to DB (silent, no navigation) ──────────────────────────────────
+  const autoSave = useCallback(async (data: ResearchOutput) => {
+    const updatedDna = { ...campaignDnaRef.current, research: data }
+    try {
+      await fetch(`/api/campaigns/${campaignId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaign_dna: updatedDna, status: 'researcher' }),
+      })
+      campaignDnaRef.current = updatedDna
+      setHasChanges(false)
+    } catch { /* silent */ }
+  }, [campaignId])
+
   // ── Generate all sections ────────────────────────────────────────────────────
   const handleGenerate = useCallback(async () => {
     setGenerationState('generating')
@@ -458,10 +472,12 @@ export default function ResearcherPage() {
     try {
       await streamResearch(
         [], // empty → researcher auto-starts with full analysis
-        (parsed) => {
-          setResearch({ ...EMPTY_RESEARCH, ...parsed })
+        async (parsed) => {
+          const full = { ...EMPTY_RESEARCH, ...parsed }
+          setResearch(full)
           setGenerationState('done')
-          setHasChanges(true)
+          // Auto-save immediately so a page refresh doesn't lose the data
+          await autoSave(full)
         },
         (accText) => setStreamingText(accText)
       )
@@ -469,7 +485,7 @@ export default function ResearcherPage() {
       setGenerationState('done')
       setLoadError(e instanceof Error ? e.message : 'Error al generar')
     }
-  }, [streamResearch])
+  }, [streamResearch, autoSave])
 
   // ── Refine single field ──────────────────────────────────────────────────────
   const handleRefine = useCallback(async (fieldKey: FieldKey, userContext: string) => {
@@ -484,36 +500,30 @@ export default function ResearcherPage() {
       const targetMsg = `El análisis actual del campo '${fieldKey}' es:\n"${currentStr}"\n\nEl usuario agrega este contexto adicional: "${userContext}".\n\nMantené lo que ya estaba bien, incorporá la nueva información y enriquecé ese campo. Incluí el bloque research-output completo al final.`
       await streamResearch(
         [{ role: 'user', content: targetMsg }],
-        (parsed) => {
-          setResearch((prev) => ({ ...prev, [fieldKey]: parsed[fieldKey] }))
-          setHasChanges(true)
+        async (parsed) => {
+          const updated = { ...research, [fieldKey]: parsed[fieldKey] }
+          setResearch(updated)
+          // Auto-save after each refine too
+          await autoSave(updated)
         }
       )
     } finally {
       setRefiningField(null)
     }
-  }, [streamResearch, research])
+  }, [streamResearch, research, autoSave])
 
-  // ── Save ─────────────────────────────────────────────────────────────────────
+  // ── Save & navigate ───────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     setIsSaving(true)
     try {
-      const updatedDna = { ...campaignDnaRef.current, research }
-      const res = await fetch(`/api/campaigns/${campaignId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaign_dna: updatedDna, status: 'researcher' }),
-      })
-      if (!res.ok) throw new Error('Error al guardar')
-      campaignDnaRef.current = updatedDna
-      setHasChanges(false)
+      await autoSave(research)
       router.push(`/campaigns/${campaignId}/agent/copywriter`)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Error al guardar')
     } finally {
       setIsSaving(false)
     }
-  }, [campaignId, research, router])
+  }, [campaignId, research, router, autoSave])
 
   const updateField = useCallback((key: FieldKey, value: string | string[]) => {
     setResearch((prev) => ({ ...prev, [key]: value }))
