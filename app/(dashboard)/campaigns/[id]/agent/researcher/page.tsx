@@ -475,7 +475,13 @@ export default function ResearcherPage() {
   const handleRefine = useCallback(async (fieldKey: FieldKey, userContext: string) => {
     setRefiningField(fieldKey)
     try {
-      const targetMsg = `Actualizá únicamente el campo '${fieldKey}' teniendo en cuenta este contexto adicional del usuario: "${userContext}". Analizá con más detalle ese campo e incluí el bloque research-output completo y actualizado al final.`
+      // Pass the current value so the AI enriches it instead of replacing it
+      const currentValue = research[fieldKey]
+      const currentStr = Array.isArray(currentValue)
+        ? currentValue.length > 0 ? currentValue.join(' | ') : '(vacío)'
+        : (currentValue as string) || '(vacío)'
+
+      const targetMsg = `El análisis actual del campo '${fieldKey}' es:\n"${currentStr}"\n\nEl usuario agrega este contexto adicional: "${userContext}".\n\nMantené lo que ya estaba bien, incorporá la nueva información y enriquecé ese campo. Incluí el bloque research-output completo al final.`
       await streamResearch(
         [{ role: 'user', content: targetMsg }],
         (parsed) => {
@@ -486,7 +492,7 @@ export default function ResearcherPage() {
     } finally {
       setRefiningField(null)
     }
-  }, [streamResearch])
+  }, [streamResearch, research])
 
   // ── Save ─────────────────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
