@@ -589,6 +589,8 @@ export default function AgentPage() {
   }
 
   const canSend = (input.trim().length > 0 || attachedFile !== null) && !isStreaming
+  // Show continue button whenever this agent has saved output (not just on last message)
+  const hasSavedOutput = !!(campaignDna as Record<string, unknown> | undefined)?.[config.outputKey]
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4" style={{ height: 'calc(100vh - 140px)' }}>
@@ -682,17 +684,6 @@ export default function AgentPage() {
                     <p className="text-[11px] text-gray-400 mt-1.5 ml-1">
                       ✓ Resultado guardado en el panel →
                     </p>
-                  )}
-
-                  {msg.outputData && isLast && !isStreaming && (
-                    <div className="mt-4">
-                      <button
-                        onClick={handleContinue}
-                        className={`w-full py-3 bg-gradient-to-r ${config.color} text-white rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-sm text-sm`}
-                      >
-                        {config.nextLabel ?? '🏁 Ver campaña completa →'}
-                      </button>
-                    </div>
                   )}
                 </div>
               </div>
@@ -823,6 +814,17 @@ export default function AgentPage() {
 
     {/* ── Right: Quality + Memory panel (desktop only) ── */}
     <div className="hidden lg:flex flex-col min-h-0">
+
+      {/* Persistent continue button — visible whenever output is saved */}
+      {hasSavedOutput && (
+        <button
+          onClick={handleContinue}
+          className={`w-full mb-3 py-3 bg-gradient-to-r ${config.color} text-white rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-sm text-sm flex-shrink-0`}
+        >
+          {config.nextLabel ?? '🏁 Ver campaña completa →'}
+        </button>
+      )}
+
       <div className="flex gap-1 mb-3 bg-gray-100 rounded-xl p-1 flex-shrink-0">
         {(['quality', 'memory'] as const).map((tab) => (
           <button
