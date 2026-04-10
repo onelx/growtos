@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import CampaignMemoryPanel, { type CampaignDNA } from '@/components/CampaignMemoryPanel'
+import CampaignQualityPanel from '@/components/CampaignQualityPanel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -221,6 +222,8 @@ export default function AgentPage() {
   // Memory persistence
   const [conversationLoaded, setConversationLoaded] = useState(false)
   const [hasSavedHistory, setHasSavedHistory] = useState(false)
+  // Right panel tab
+  const [rightTab, setRightTab] = useState<'quality' | 'memory'>('quality')
 
   const conversationHistoryRef = useRef<ConversationMessage[]>([])
   const accumulatedTextRef = useRef<string>('')
@@ -413,6 +416,21 @@ export default function AgentPage() {
     await streamAgentResponse(newHistory)
   }, [input, isStreaming, streamAgentResponse])
 
+  // ── Direct send from quality panel buttons ───────────────────────────────
+  const handleDirectSend = useCallback(async (text: string) => {
+    if (!text || isStreaming) return
+    const newHistory: ConversationMessage[] = [
+      ...conversationHistoryRef.current,
+      { role: 'user', content: text },
+    ]
+    conversationHistoryRef.current = newHistory
+    setMessages((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), role: 'user', displayContent: text, isStreaming: false },
+    ])
+    await streamAgentResponse(newHistory)
+  }, [isStreaming, streamAgentResponse])
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -512,8 +530,12 @@ export default function AgentPage() {
                     )}
                   </div>
 
-                  {/* Output card */}
-                  {msg.outputData && config.outputCard(msg.outputData)}
+                  {/* Saved indicator — no inline cards, results live in the right panel */}
+                  {msg.outputData && !msg.isStreaming && (
+                    <p className="text-[11px] text-gray-400 mt-1.5 ml-1">
+                      ✓ Resultado guardado en el panel →
+                    </p>
+                  )}
 
                   {/* Continue button — only on last assistant message with output */}
                   {msg.outputData && isLast && !isStreaming && (
@@ -571,14 +593,42 @@ export default function AgentPage() {
       </div>
     </div> {/* end left chat column */}
 
-    {/* ── Right: Memory panel (desktop only) ── */}
-    <div className="hidden lg:flex flex-col min-h-0 overflow-y-auto">
-      <CampaignMemoryPanel
-        intakeData={intakeData as any}
-        campaignDna={campaignDna}
-        currentAgentType={agentType as 'strategist' | 'researcher' | 'copywriter'}
-        liveOutput={liveOutput ?? undefined}
-      />
+    {/* ── Right: Quality + Memory panel (desktop only) ── */}
+    <div className="hidden lg:flex flex-col min-h-0">
+      {/* Tabs */}
+      <div className="flex gap-1 mb-3 bg-gray-100 rounded-xl p-1 flex-shrink-0">
+        {(['quality', 'memory'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setRightTab(tab)}
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              rightTab === tab
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab === 'quality' ? '📊 Calidad' : '🧠 Memoria'}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {rightTab === 'quality' ? (
+          <CampaignQualityPanel
+            intakeData={intakeData as any}
+            campaignDna={campaignDna as any}
+            onSendPrompt={handleDirectSend}
+          />
+        ) : (
+          <CampaignMemoryPanel
+            intakeData={intakeData as any}
+            campaignDna={campaignDna}
+            currentAgentType={agentType as 'strategist' | 'researcher' | 'copywriter'}
+            liveOutput={liveOutput ?? undefined}
+          />
+        )}
+      </div>
     </div>
 
     </div>
