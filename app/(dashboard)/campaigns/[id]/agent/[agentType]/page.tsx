@@ -32,6 +32,7 @@ interface DisplayMessage {
   attachmentPreview?: string   // data URL for image thumbnail
   outputData?: Record<string, unknown>
   isStreaming: boolean
+  suggestions?: string[]
 }
 
 // ── Agent config ───────────────────────────────────────────────────────────────
@@ -103,6 +104,21 @@ function stripBlock(content: string, regex: RegExp): string {
   let result = content.replace(regex, '').trim()
   result = result.replace(/```(?:strategy|research|copy)-output[\s\S]*$/, '').trim()
   return result
+}
+
+const SUGGESTIONS_REGEX = /```suggestions\s*([\s\S]*?)\s*```/
+
+function parseSuggestions(content: string): string[] | null {
+  const match = content.match(SUGGESTIONS_REGEX)
+  if (!match) return null
+  try {
+    const parsed = JSON.parse(match[1])
+    return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === 'string') : null
+  } catch { return null }
+}
+
+function stripSuggestions(content: string): string {
+  return content.replace(SUGGESTIONS_REGEX, '').replace(/```suggestions[\s\S]*$/, '').trim()
 }
 
 // ── Output cards ───────────────────────────────────────────────────────────────
@@ -336,7 +352,7 @@ export default function AgentPage() {
             if (parsed.error) throw new Error(parsed.error)
             if (parsed.text) {
               accumulatedTextRef.current += parsed.text
-              const visible = stripBlock(accumulatedTextRef.current, config.outputRegex)
+              const visible = stripSuggestions(stripBlock(accumulatedTextRef.current, config.outputRegex))
               setMessages((prev) =>
                 prev.map((m) => m.id === msgId ? { ...m, displayContent: visible } : m)
               )
@@ -352,14 +368,14 @@ export default function AgentPage() {
       // Finalize
       const fullText = accumulatedTextRef.current
       const parsed = parseBlock(fullText, config.outputRegex)
-      const visible = stripBlock(fullText, config.outputRegex)
+      const visible = stripSuggestions(stripBlock(fullText, config.outputRegex))
       const newHistory: ConversationMessage[] = [...msgs, { role: 'assistant', content: fullText }]
       conversationHistoryRef.current = newHistory
 
       setMessages((prev) =>
         prev.map((m) =>
           m.id === msgId
-            ? { ...m, displayContent: visible, outputData: parsed ?? undefined, isStreaming: false }
+            ? { ...m, displayContent: visible, outputData: parsed ?? undefined, isStreaming: false, suggestions: parseSuggestions(fullText) ?? undefined }
             : m
         )
       )
@@ -684,6 +700,22 @@ export default function AgentPage() {
                     <p className="text-[11px] text-gray-400 mt-1.5 ml-1">
                       ✓ Resultado guardado en el panel →
                     </p>
+                  )}
+
+                  {/* Quick reply chips */}
+                  {!msg.isStreaming && isLast && msg.suggestions && msg.suggestions.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3 ml-1">
+                      {msg.suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handleDirectSend(s)}
+                          disabled={isStreaming}
+                          className="text-xs px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-full hover:border-purple-400 hover:text-purple-700 hover:bg-purple-50 transition-all disabled:opacity-40 font-medium shadow-sm"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>

@@ -36,6 +36,15 @@ INFORMACIÓN A RECOPILAR:
 ✓ Restricciones (presupuesto, geografía, equipo, limitaciones)
 ✓ Timeline deseado
 
+SUGERENCIAS DE RESPUESTA RÁPIDA:
+Cuando la respuesta a tu pregunta tiene opciones claras (Sí/No, opciones concretas), incluí al final de tu mensaje:
+
+\`\`\`suggestions
+["opción 1", "opción 2"]
+\`\`\`
+
+El bloque suggestions va al final del mensaje. Máximo 3-4 opciones. NO lo uses en preguntas abiertas.
+
 CUANDO TENGAS SUFICIENTE INFO:
 Escribí un párrafo de cierre natural celebrando lo que aprendiste, luego incluí exactamente este bloque al final del mensaje:
 

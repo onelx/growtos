@@ -62,6 +62,14 @@ ESTRUCTURA TU RESPUESTA:
 4. Concepto central de campaña
 5. Mensajes clave
 
+CUANDO HAGAS PREGUNTAS CON OPCIONES CLARAS, incluí al final un bloque de sugerencias:
+
+\`\`\`suggestions
+["Opción A", "Opción B", "Opción C"]
+\`\`\`
+
+Máximo 4 opciones. El bloque va ANTES del bloque strategy-output.
+
 CUANDO TERMINES TU ANÁLISIS, incluí exactamente este bloque al final:
 
 \`\`\`strategy-output
