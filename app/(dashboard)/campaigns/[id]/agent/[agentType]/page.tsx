@@ -108,6 +108,56 @@ function stripBlock(content: string, regex: RegExp): string {
 
 const SUGGESTIONS_REGEX = /```suggestions\s*([\s\S]*?)\s*```/
 
+/**
+ * Silent extraction: if the agent responded without including the structured
+ * JSON block, send one follow-up message to extract it without touching the UI.
+ */
+async function silentExtract(
+  agentType: string,
+  campaignId: string,
+  outputKey: string,
+  outputRegex: RegExp,
+  history: ConversationMessage[],
+  onExtracted: (data: Record<string, unknown>) => void
+): Promise<void> {
+  const blockName = `${outputKey}-output`
+  try {
+    // Trim history to last 10 exchanges to avoid context overflow
+    const trimmedHistory = history.slice(-20)
+    const forceHistory: ConversationMessage[] = [
+      ...trimmedHistory,
+      {
+        role: 'user',
+        content: `Perfecto. Ahora incluí el bloque \`\`\`${blockName}\`\`\` completo con todos los datos analizados hasta ahora. Solo el bloque JSON, sin texto adicional.`,
+      },
+    ]
+    const res = await fetch(`/api/agents/${agentType}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId, messages: forceHistory }),
+    })
+    if (!res.ok) return
+    const reader = res.body!.getReader()
+    const decoder = new TextDecoder()
+    let acc = ''
+    loop: while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      for (const line of decoder.decode(value, { stream: true }).split('\n')) {
+        if (!line.startsWith('data: ')) continue
+        const d = line.slice(6).trim()
+        if (d === '[DONE]') break loop
+        try {
+          const p = JSON.parse(d) as { text?: string }
+          if (p.text) acc += p.text
+        } catch { /* ignore partial JSON */ }
+      }
+    }
+    const extracted = parseBlock(acc, outputRegex)
+    if (extracted) onExtracted(extracted)
+  } catch { /* silent — don't surface errors to user */ }
+}
+
 function parseSuggestions(content: string): string[] | null {
   const match = content.match(SUGGESTIONS_REGEX)
   if (!match) return null
@@ -327,10 +377,12 @@ export default function AgentPage() {
     abortControllerRef.current = abortController
 
     try {
+      // Trim to last 20 messages to prevent context overflow in long conversations
+      const trimmedMsgs = msgs.length > 20 ? msgs.slice(-20) : msgs
       const res = await fetch(`/api/agents/${agentType}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId, messages: msgs }),
+        body: JSON.stringify({ campaignId, messages: trimmedMsgs }),
         signal: abortController.signal,
       })
 
@@ -380,7 +432,20 @@ export default function AgentPage() {
         )
       )
 
-      if (parsed) await saveOutput(parsed)
+      if (parsed) {
+        await saveOutput(parsed)
+      } else {
+        // Auto-extract: agent replied without the JSON block — silently retry
+        await silentExtract(agentType, campaignId, config.outputKey, config.outputRegex, newHistory, async (data) => {
+          await saveOutput(data)
+          // Attach output card to the last assistant message
+          setMessages((prev) => {
+            const lastAssIdx = prev.map((m, i) => (m.role === 'assistant' ? i : -1)).filter((i) => i >= 0).pop()
+            if (lastAssIdx === undefined) return prev
+            return prev.map((m, i) => (i === lastAssIdx ? { ...m, outputData: data } : m))
+          })
+        })
+      }
       await saveConversation(newHistory)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -777,6 +842,19 @@ export default function AgentPage() {
             </div>
           )}
 
+          {/* Guardar resultados: fallback banner when agent responded but no data saved */}
+          {!hasSavedOutput && messages.length > 1 && !isStreaming && (
+            <div className="mb-2 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              <p className="text-xs text-amber-700 font-medium">⚠️ Resultados aún no guardados</p>
+              <button
+                onClick={() => handleDirectSend(`Perfecto. Incluí el bloque \`\`\`${config.outputKey}-output\`\`\` completo con todos los datos que analizamos.`)}
+                className="text-xs font-semibold px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors ml-3 whitespace-nowrap"
+              >
+                💾 Guardar análisis
+              </button>
+            </div>
+          )}
+
           {/* Input row */}
           <div className="flex gap-2 items-end bg-white rounded-xl border border-gray-200 px-3 py-2 focus-within:border-purple-400 transition-colors shadow-sm">
             {/* Paperclip / attach */}
@@ -847,14 +925,28 @@ export default function AgentPage() {
     {/* ── Right: Quality + Memory panel (desktop only) ── */}
     <div className="hidden lg:flex flex-col min-h-0">
 
-      {/* Persistent continue button — visible whenever output is saved */}
-      {hasSavedOutput && (
+      {/* Continue button — always visible, style depends on whether output is saved */}
+      {hasSavedOutput ? (
         <button
           onClick={handleContinue}
-          className={`w-full mb-3 py-3 bg-gradient-to-r ${config.color} text-white rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-sm text-sm flex-shrink-0`}
+          disabled={isStreaming}
+          className={`w-full mb-3 py-3 bg-gradient-to-r ${config.color} text-white rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-sm text-sm flex-shrink-0 disabled:opacity-40`}
         >
           {config.nextLabel ?? '🏁 Ver campaña completa →'}
         </button>
+      ) : (
+        <div className="mb-3 flex-shrink-0 space-y-1.5">
+          <button
+            onClick={handleContinue}
+            disabled={isStreaming}
+            className="w-full py-2.5 bg-gray-100 border border-gray-300 text-gray-600 rounded-xl font-semibold hover:bg-gray-200 transition-colors text-sm disabled:opacity-40"
+          >
+            {config.nextLabel ? config.nextLabel.replace('→', '') + '(sin guardar) →' : '🏁 Ver campaña →'}
+          </button>
+          <p className="text-[10px] text-gray-400 text-center leading-relaxed">
+            El agente no guardó datos aún — podés avanzar igual
+          </p>
+        </div>
       )}
 
       <div className="flex gap-1 mb-3 bg-gray-100 rounded-xl p-1 flex-shrink-0">
