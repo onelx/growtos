@@ -83,11 +83,12 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, status } = body
+    const { name, status, campaign_dna } = body
 
     const updates: any = { updated_at: new Date().toISOString() }
     if (name) updates.name = name
     if (status) updates.status = status
+    if (campaign_dna !== undefined) updates.campaign_dna = campaign_dna
 
     const { data: campaign, error } = await supabase
       .from('campaigns')
