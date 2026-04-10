@@ -20,7 +20,7 @@ export default function AgentChatPage() {
   const campaignId = params.id as string
   const agentType = params.agentType as string
 
-  const { credits, loading: creditsLoading, deductCredits } = useCredits()
+  const { balance: credits, isLoading: creditsLoading, deductCredits } = useCredits()
   const { sendMessage, streaming } = useAgent(campaignId)
 
   const [messages, setMessages] = useState<Message[]>([])
@@ -106,7 +106,7 @@ export default function AgentChatPage() {
 
       // Deducir créditos
       if (response.tokensUsed) {
-        await deductCredits(Math.ceil(response.tokensUsed / 100))
+        await deductCredits(Math.ceil(response.tokensUsed / 100), 'agent_message')
       }
     } catch (error) {
       const errorMessage: Message = {
