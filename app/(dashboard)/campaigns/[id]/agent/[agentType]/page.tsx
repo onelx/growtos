@@ -86,7 +86,11 @@ function parseBlock(content: string, regex: RegExp): Record<string, unknown> | n
 }
 
 function stripBlock(content: string, regex: RegExp): string {
-  return content.replace(regex, '').trim()
+  // Remove complete block
+  let result = content.replace(regex, '').trim()
+  // Also remove any incomplete/truncated block (no closing ```)
+  result = result.replace(/```(?:strategy|research|copy)-output[\s\S]*$/, '').trim()
+  return result
 }
 
 // ── Output cards ───────────────────────────────────────────────────────────────
