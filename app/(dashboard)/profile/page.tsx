@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 
 export default function ProfilePage() {
   const { user } = useAuth()
-  const { credits, loading } = useCredits()
+  const { balance: credits, isLoading: loading } = useCredits()
 
   return (
     <div className="max-w-4xl mx-auto">

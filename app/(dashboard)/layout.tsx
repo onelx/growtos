@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
+import { useCredits } from '@/hooks/useCredits'
 import { CreditsBadge } from '@/components/CreditsBadge'
 import { Button } from '@/components/ui/Button'
 
@@ -14,7 +15,8 @@ export default function DashboardLayout({
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, loading, signOut } = useAuth()
+  const { user, isLoading: loading, signOut } = useAuth()
+  const { balance: credits } = useCredits()
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
@@ -133,7 +135,7 @@ export default function DashboardLayout({
               </button>
 
               <div className="flex items-center gap-4">
-                <CreditsBadge />
+                <CreditsBadge credits={credits} />
               </div>
             </div>
           </div>
