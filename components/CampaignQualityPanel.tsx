@@ -396,6 +396,38 @@ export default function CampaignQualityPanel({
         </div>
       </div>
 
+      {/* Quick action — generate analysis now (researcher with no data) */}
+      {currentAgentType === 'researcher' && !campaignDna?.research && onSendPrompt && (
+        <div className="bg-blue-600 rounded-xl p-3 space-y-2">
+          <p className="text-xs font-bold text-white">📊 Sin datos de investigación todavía</p>
+          <p className="text-[11px] text-blue-100 leading-relaxed">
+            El agente no guardó ningún análisis aún. Pedíselo ahora.
+          </p>
+          <button
+            onClick={() => onSendPrompt('Generá el análisis completo ahora: mercado, competencia, audiencia y oportunidad. Incluí el bloque research-output al final.')}
+            className="w-full text-xs font-bold text-blue-700 bg-white rounded-lg px-3 py-2 hover:bg-blue-50 transition-colors"
+          >
+            Generar análisis ahora →
+          </button>
+        </div>
+      )}
+
+      {/* Quick action — generate copy (copywriter with no data) */}
+      {currentAgentType === 'copywriter' && !campaignDna?.copy && onSendPrompt && (
+        <div className="bg-pink-600 rounded-xl p-3 space-y-2">
+          <p className="text-xs font-bold text-white">✍️ Sin copy generado todavía</p>
+          <p className="text-[11px] text-pink-100 leading-relaxed">
+            El agente no guardó ningún copy aún. Pedíselo ahora.
+          </p>
+          <button
+            onClick={() => onSendPrompt('Generá el copy completo ahora: tagline, headlines, CTAs y posts. Incluí el bloque copy-output al final.')}
+            className="w-full text-xs font-bold text-pink-700 bg-white rounded-lg px-3 py-2 hover:bg-pink-50 transition-colors"
+          >
+            Generar copy ahora →
+          </button>
+        </div>
+      )}
+
       {/* Dimensions — compact */}
       <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2.5">
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">

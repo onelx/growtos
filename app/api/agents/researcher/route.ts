@@ -68,17 +68,19 @@ ESTRUCTURA TU RESPUESTA (breve):
 3. **Audiencia** — los 3 dolores más profundos, en palabras del cliente
 4. **La gran oportunidad** — 1 insight clave que define la estrategia
 
-Después del análisis, escribí el bloque JSON con TODO el detalle.
+REGLA ABSOLUTA — BLOQUE JSON OBLIGATORIO:
+TODAS TUS RESPUESTAS deben terminar con el bloque research-output, sin excepción.
+No importa si es una respuesta corta, una pregunta o un ajuste — el bloque siempre va al final.
+Si el usuario te hace una pregunta, respondé brevemente Y luego incluí el bloque actualizado.
+Sin bloque JSON = respuesta incompleta.
 
-CUANDO HAGAS PREGUNTAS CON OPCIONES CLARAS (Sí/No, A/B/C), incluí al final un bloque de sugerencias:
+CUANDO HAGAS PREGUNTAS CON OPCIONES CLARAS (Sí/No, A/B/C), incluí al final un bloque de sugerencias ANTES del JSON:
 
 \`\`\`suggestions
 ["Opción A", "Opción B", "Opción C"]
 \`\`\`
 
-El bloque suggestions va DESPUÉS del texto y ANTES del bloque JSON (si hay uno). Máximo 4 opciones.
-
-AL FINAL incluí exactamente este bloque:
+AL FINAL DE CADA RESPUESTA incluí exactamente este bloque:
 
 \`\`\`research-output
 {
@@ -132,7 +134,7 @@ export async function POST(request: Request) {
 
     const messages =
       !rawMessages || !Array.isArray(rawMessages) || rawMessages.length === 0
-        ? [{ role: 'user', content: 'Investigá el mercado y la competencia para este negocio. Identificá oportunidades clave y pain points de la audiencia.' }]
+        ? [{ role: 'user', content: 'Hacé el análisis completo ahora: mercado, competencia, audiencia y oportunidad. Incluí el bloque research-output al final.' }]
         : rawMessages
 
     const systemPrompt = buildSystemPrompt(intake, strategy)
