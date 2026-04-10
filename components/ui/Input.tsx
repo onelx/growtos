@@ -57,4 +57,5 @@ const Input = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, InputProp
 
 Input.displayName = 'Input';
 
+export { Input };
 export default Input;

@@ -131,4 +131,5 @@ const CreditsBadge: React.FC<CreditsBadgeProps> = ({
   );
 };
 
+export { CreditsBadge };
 export default CreditsBadge;

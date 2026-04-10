@@ -183,4 +183,5 @@ const CampaignCard: React.FC<CampaignCardProps> = ({
   );
 };
 
+export { CampaignCard };
 export default CampaignCard;
