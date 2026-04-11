@@ -17,6 +17,14 @@ module.exports = {
     },
     extend: {
       colors: {
+        brand: {
+          black:       '#1B1B1B',
+          dark:        '#323232',
+          cream:       '#FFE7D0',
+          orange:      '#FC6E20',
+          orangeLight: '#FD8A47',
+          orangeTint:  '#FFF3EA',
+        },
         border: "#e5e7eb",
         input: "#e5e7eb",
         ring: "#2563eb",
