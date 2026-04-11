@@ -190,7 +190,7 @@ function Field({ label, value }: { label: string; value: unknown }) {
   if (!value) return null
   return (
     <div>
-      <p className="text-xs font-bold text-purple-600 uppercase tracking-widest mb-1">{label}</p>
+      <p className="text-xs font-bold text-brand-orange uppercase tracking-widest mb-1">{label}</p>
       {Array.isArray(value)
         ? <TagList items={value} />
         : <p className="text-gray-700 text-sm leading-relaxed">{String(value)}</p>
@@ -253,7 +253,7 @@ function CopyCard({ data }: { data: Record<string, unknown> }) {
         <Field label="Email subjects" value={data.emailSubjects} />
         {Array.isArray(data.socialPosts) && data.socialPosts.length > 0 && (
           <div>
-            <p className="text-xs font-bold text-purple-600 uppercase tracking-widest mb-2">Posts para redes</p>
+            <p className="text-xs font-bold text-brand-orange uppercase tracking-widest mb-2">Posts para redes</p>
             <div className="space-y-2">
               {(data.socialPosts as string[]).map((post, i) => (
                 <div key={i} className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 leading-relaxed border border-gray-100">
@@ -735,7 +735,7 @@ export default function AgentPage() {
                     )}
                     {/* Message text */}
                     {msg.displayContent && (
-                      <div className="bg-gradient-to-br from-purple-600 to-blue-600 text-white rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
+                      <div className="bg-gradient-to-br from-brand-orange to-brand-orangeLight text-white rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
                         {msg.displayContent}
                       </div>
                     )}

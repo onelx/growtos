@@ -105,12 +105,12 @@ function BriefCard({
   return (
     <div className="mt-4 rounded-2xl overflow-hidden border border-purple-200 shadow-lg">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 px-5 py-4">
+      <div className="bg-gradient-to-r from-brand-orange to-brand-orangeLight px-5 py-4">
         <div className="flex items-center gap-2">
           <span className="text-xl">✨</span>
           <div>
             <p className="text-white font-bold text-sm tracking-wide">BRIEF DE CAMPAÑA</p>
-            <p className="text-purple-200 text-xs mt-0.5">Listo para crear</p>
+            <p className="text-orange-100 text-xs mt-0.5">Listo para crear</p>
           </div>
         </div>
       </div>
@@ -123,7 +123,7 @@ function BriefCard({
 
         <div className="grid grid-cols-1 gap-4">
           <div>
-            <p className="text-xs font-bold text-purple-600 uppercase tracking-widest mb-1">
+            <p className="text-xs font-bold text-brand-orange uppercase tracking-widest mb-1">
               Negocio
             </p>
             <p className="text-gray-700 text-sm leading-relaxed">
@@ -132,7 +132,7 @@ function BriefCard({
           </div>
 
           <div>
-            <p className="text-xs font-bold text-purple-600 uppercase tracking-widest mb-1">
+            <p className="text-xs font-bold text-brand-orange uppercase tracking-widest mb-1">
               Audiencia objetivo
             </p>
             <p className="text-gray-700 text-sm leading-relaxed">
@@ -141,14 +141,14 @@ function BriefCard({
           </div>
 
           <div>
-            <p className="text-xs font-bold text-purple-600 uppercase tracking-widest mb-2">
+            <p className="text-xs font-bold text-brand-orange uppercase tracking-widest mb-2">
               Objetivos
             </p>
             <div className="flex flex-wrap gap-2">
               {brief.goals.map((goal, i) => (
                 <span
                   key={i}
-                  className="px-3 py-1 bg-purple-50 text-purple-700 border border-purple-100 rounded-full text-xs font-medium"
+                  className="px-3 py-1 bg-brand-orangeTint text-brand-orange border border-brand-orange/20 rounded-full text-xs font-medium"
                 >
                   {goal}
                 </span>
@@ -184,7 +184,7 @@ function BriefCard({
         <button
           onClick={() => onCreateCampaign(brief)}
           disabled={isCreating}
-          className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-brand-orange to-brand-orangeLight text-white rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
         >
           {isCreating ? (
             <>
@@ -461,7 +461,7 @@ export default function NewCampaignPage() {
         <div className="max-w-md w-full text-center space-y-8">
           {/* Icon */}
           <div className="relative mx-auto w-24 h-24">
-            <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-blue-600 rounded-3xl flex items-center justify-center shadow-xl">
+            <div className="w-24 h-24 bg-gradient-to-br from-brand-orange to-brand-orangeLight rounded-3xl flex items-center justify-center shadow-xl">
               <span className="text-5xl">✨</span>
             </div>
             <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 rounded-full border-2 border-white" />
@@ -495,7 +495,7 @@ export default function NewCampaignPage() {
           {/* CTA */}
           <button
             onClick={handleStart}
-            className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-2xl text-lg font-bold hover:opacity-90 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+            className="w-full py-4 bg-gradient-to-r from-brand-orange to-brand-orangeLight text-white rounded-2xl text-lg font-bold hover:opacity-90 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
           >
             Comenzar →
           </button>
@@ -521,7 +521,7 @@ export default function NewCampaignPage() {
           ← Volver
         </button>
         <div className="flex items-center gap-2 ml-2">
-          <div className="w-9 h-9 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center shadow-sm">
+          <div className="w-9 h-9 bg-gradient-to-br from-brand-orange to-brand-orangeLight rounded-full flex items-center justify-center shadow-sm">
             <span className="text-base">✨</span>
           </div>
           <div>
@@ -546,7 +546,7 @@ export default function NewCampaignPage() {
             if (msg.role === 'user') {
               return (
                 <div key={msg.id} className="flex justify-end">
-                  <div className="max-w-[78%] bg-gradient-to-br from-purple-600 to-blue-600 text-white rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
+                  <div className="max-w-[78%] bg-gradient-to-br from-brand-orange to-brand-orangeLight text-white rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
                     {msg.displayContent}
                   </div>
                 </div>
@@ -555,7 +555,7 @@ export default function NewCampaignPage() {
 
             return (
               <div key={msg.id} className="flex gap-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
+                <div className="w-8 h-8 bg-gradient-to-br from-brand-orange to-brand-orangeLight rounded-full flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
                   <span className="text-xs text-white font-bold">AI</span>
                 </div>
                 <div className="flex-1 max-w-[85%]">
@@ -578,7 +578,7 @@ export default function NewCampaignPage() {
                           key={i}
                           onClick={() => handleDirectSend(s)}
                           disabled={isStreaming}
-                          className="text-xs px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-full hover:border-purple-400 hover:text-purple-700 hover:bg-purple-50 transition-all disabled:opacity-40 font-medium shadow-sm"
+                          className="text-xs px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-full hover:border-brand-orange hover:text-brand-orange hover:bg-brand-orangeTint transition-all disabled:opacity-40 font-medium shadow-sm"
                         >
                           {s}
                         </button>
@@ -611,7 +611,7 @@ export default function NewCampaignPage() {
         {/* Input bar — hidden once brief is generated */}
         {phase !== 'brief' && (
           <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 p-3">
-            <div className="flex gap-2 items-end bg-white rounded-xl border border-gray-200 px-3 py-2 focus-within:border-purple-400 transition-colors shadow-sm">
+            <div className="flex gap-2 items-end bg-white rounded-xl border border-gray-200 px-3 py-2 focus-within:border-brand-orange transition-colors shadow-sm">
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -626,7 +626,7 @@ export default function NewCampaignPage() {
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isStreaming}
-                className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600 text-white rounded-lg disabled:opacity-30 hover:opacity-90 transition-opacity flex-shrink-0"
+                className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-brand-orange to-brand-orangeLight text-white rounded-lg disabled:opacity-30 hover:opacity-90 transition-opacity flex-shrink-0"
                 aria-label="Enviar"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -15,11 +15,11 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className={`${inter.className} min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50`}>
+    <div className={`${inter.className} min-h-screen bg-gradient-to-br from-brand-orangeTint via-white to-brand-cream`}>
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-brand-orange to-brand-orangeLight bg-clip-text text-transparent mb-2">
               GrowtOS
             </h1>
             <p className="text-gray-600">

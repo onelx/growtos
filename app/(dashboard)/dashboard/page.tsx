@@ -52,7 +52,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-orange"></div>
       </div>
     )
   }
@@ -84,7 +84,7 @@ export default function DashboardPage() {
 
       {campaigns.length === 0 ? (
         <div className="text-center py-16">
-          <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="w-24 h-24 bg-brand-orangeTint rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-5xl">🚀</span>
           </div>
           <h2 className="text-2xl font-semibold text-gray-900 mb-2">

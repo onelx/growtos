@@ -28,7 +28,7 @@ export default function DashboardLayout({
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-orange"></div>
       </div>
     )
   }
@@ -54,7 +54,7 @@ export default function DashboardLayout({
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="p-6 border-b border-gray-200">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-brand-orange to-brand-orangeLight bg-clip-text text-transparent">
               GrowtOS
             </h1>
             <p className="text-sm text-gray-500 mt-1">Marketing con IA</p>
@@ -70,7 +70,7 @@ export default function DashboardLayout({
                   href={item.href}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-purple-50 text-purple-700 font-medium'
+                      ? 'bg-brand-orangeTint text-brand-orange font-medium'
                       : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -85,8 +85,8 @@ export default function DashboardLayout({
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                  <span className="text-purple-600 font-medium">
+                <div className="w-10 h-10 bg-brand-orangeTint rounded-full flex items-center justify-center">
+                  <span className="text-brand-orange font-medium">
                     {user.email?.[0].toUpperCase()}
                   </span>
                 </div>

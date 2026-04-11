@@ -132,7 +132,7 @@ export default function LoginPage() {
 
         <p className="mt-6 text-center text-sm text-gray-600">
           Al continuar, aceptás nuestros{' '}
-          <a href="/terms" className="text-purple-600 hover:underline">
+          <a href="/terms" className="text-brand-orange hover:underline">
             términos de servicio
           </a>
         </p>
